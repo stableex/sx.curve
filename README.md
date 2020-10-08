@@ -1,2 +1,3 @@
-# sx.curve
-SX Curve
+# SX Curve
+
+> EOSIO Curve implementation
