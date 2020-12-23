@@ -19,10 +19,10 @@ class Curve {
      * n: number of currencies
      * p: target prices
      */
-    constructor(A: number, D: number[] | number, n: number, p: number[]|null = null, tokens: number| null = null) {
+    constructor( A: number, D: number[] | number, n: number, p: number[] | null = null, tokens: number | null = null ) {
         this.A = A // actually A * n ** (n - 1) because it's an invariant
         this.n = n
-        this.fee = 10 ** 7
+        this.fee = 10 ** 6 * 4 // 0.04 %
         this.p = p ? p : Array(n).fill(10 ** 18);
         this.x = Array.isArray(D) ? D : this.p.map(_p => Math.floor(D / n) * 10 ** Math.floor(18 / _p));
         this.tokens = tokens;
@@ -132,22 +132,29 @@ class Curve {
         const y = this.y(i, j, x)
         const dy = xp[j] - y
         const fee = Math.floor(dy * this.fee / 10 ** 10)
-        if (dy > 0) throw new Error();
+
+        console.log("x:", x);
+        console.log("xp:", xp);
+        console.log("y:", y);
+        console.log("dy:", dy);
+        console.log("fee:", fee);
+
+        if (!(dy > 0)) throw new Error();
         this.x[i] = Math.floor(x * 10 ** 18 / this.p[i]);
         this.x[j] = Math.floor((y + fee) * 10 ** 18 / this.p[j])
         return dy - fee
     }
 }
 
-const reserveA = 62755905
-const reserveB = 78805744
-const reserveC = 26929921
-const total = reserveA + reserveB + reserveC
-const c = new Curve(200, total, 3)
+const reserveA = 31650.61 * 10 ** 6
+const reserveB = 78911.70 * 10 ** 6
+const reserveC = 256024.53 * 10 ** 6
+const total = [reserveA, reserveB, reserveC]
+const c = new Curve(2000, total, 3)
 // console.log(c.xp());
 // console.log(c.D());
 // console.log(c.y(1, 2, 3));
-console.log(c.exchange(100, 100, 100));
+console.log("exchange", c.exchange(0, 1, 1000 * 10 ** 6));
 
 // class Curve:
 

@@ -14,7 +14,7 @@ class Curve:
         """
         self.A = A  # actually A * n ** (n - 1) because it's an invariant
         self.n = n
-        self.fee = 10 ** 6 * 5 # 0.04 %
+        self.fee = 10 ** 6 * 4 # 0.04 %
         # self.fee = 0
         if p:
             self.p = p
@@ -26,9 +26,6 @@ class Curve:
         else:
             self.x = [D // n * 10 ** 18 // _p for _p in self.p]
         self.tokens = tokens
-
-        # print(self.p)
-        # print(self.x)
 
     def xp(self):
         return [x * p // 10 ** 18 for x, p in zip(self.x, self.p)]
@@ -121,6 +118,13 @@ class Curve:
         y = self.y(i, j, x)
         dy = xp[j] - y
         fee = dy * self.fee // 10 ** 10
+
+        print("x:", x)
+        print("xp:", xp)
+        print("y:", y)
+        print("dy:", dy)
+        print("fee:", fee)
+
         assert dy > 0
         self.x[i] = x * 10 ** 18 // self.p[i]
         self.x[j] = (y + fee) * 10 ** 18 // self.p[j]
@@ -169,18 +173,14 @@ class Curve:
 # n: number of currencies
 # p: target prices
 if __name__ == "__main__":
-    balance0 = 27199440142846
-    balance1 = 78470158187838
-    balance2 = 62292234848263
+    balance0 = 31650.61 * 10 ** 6
+    balance1 = 78911.70 * 10 ** 6
+    balance2 = 256024.53 * 10 ** 6
 
     total = [balance0, balance1, balance2]
-    c = Curve(200, total, 3)
+    c = Curve(2000, total, 3)
     # print(c.xp())
     # print(c.D())
     # print(c.y(1,2,3))
     # print(c.y_D(10000,10000))
-    print( c.exchange(1, 2, 100000 * 10 ** 6) )
-
-99846.37
-99837.940332
-99846.37
+    print( "exchange:", c.exchange(0, 1, 10000 * 10 ** 6) )
