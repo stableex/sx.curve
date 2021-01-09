@@ -175,10 +175,10 @@ class Curve:
 if __name__ == "__main__":
     AMPLIFIER = 450
     PRECISION = 10 ** 6
-    # reserve0 = 34322475.48
-    # reserve1 = 61693627.00
-    reserve0 = 8000000
-    reserve1 = 12000000
+    reserve0 = 3432247548
+    reserve1 = 6169362700
+    # reserve0 = 8000000
+    # reserve1 = 12000000
 
     total = [reserve0, reserve1]
     c = Curve(AMPLIFIER, total, 2)

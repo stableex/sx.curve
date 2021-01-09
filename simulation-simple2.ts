@@ -14,6 +14,7 @@ class Curve {
     public amplifier: bigint;
     public reserve0: bigint;
     public reserve1: bigint;
+    public reserves: bigint[];
 
     public n: bigint = 2n;
     public A: bigint;
@@ -28,6 +29,7 @@ class Curve {
         this.amplifier = amplifier;
         this.reserve0 = reserve0;
         this.reserve1 = reserve1;
+        this.reserves = [reserve0, reserve1];
         this.A = amplifier;
     }
 
@@ -35,26 +37,6 @@ class Curve {
         return [ this.reserve0, this.reserve1 ];
         // return zip(this.x, this.p).map(([x, p]) => Math.floor(x * p / PRECISION))
     }
-
-    // /**
-    //  * D invariant calculation in non-overflowing integer operations
-    //  * iteratively
-    //  *
-    //  * A * sum(x_i) * n**n + D = A * D * n**n + D**(n+1) / (n**n * prod(x_i))
-    //  *
-    //  * Converging solution:
-    //  * D[j+1] = (A * n**n * sum(x_i) - D[j]**(n+1) / (n**n prod(x_i))) / (A * n**n - 1)
-    //  */
-    // public D(): bigint {
-    //     const sum = this.reserve0 + this.reserve1;
-    //     let deposits = sum;
-
-    //     for ( const reserve of [ this.reserve0, this.reserve1 ] ) {
-    //         deposits = deposits * deposits / (2n * reserve )
-    //     }
-    //     deposits = (this.amplifier * 2n * sum + deposits * 2n) * deposits / ((this.amplifier * 2n - 1n) * deposits + (2n + 1n) * deposits)
-    //     return deposits
-    // }
 
     /**
      * D invariant calculation in non-overflowing integer operations
@@ -66,20 +48,12 @@ class Curve {
      * D[j+1] = (A * n**n * sum(x_i) - D[j]**(n+1) / (n**n prod(x_i))) / (A * n**n - 1)
      */
     public D(): bigint {
-        let Dprev = 0n
-        const xp = this.xp()
-        const S = this.reserve0 + this.reserve1;
-        let D = S
-        const Ann = this.A * this.n
-        while (Math.abs(Number(D - Dprev)) > 1) {
-            let D_P = D
-            for ( const x of xp ) {
-                D_P = D_P * D / (this.n * x)
-            }
-            Dprev = D
-            D = (Ann * S + D_P * this.n) * D / ((Ann - 1n) * D + (this.n + 1n) * D_P)
+        const sum = this.reserve0 + this.reserve1;
+        let previous = sum
+        for ( const reserve of this.reserves ) {
+            previous = previous * sum / (2n * reserve)
         }
-        return D
+        return (this.amplifier * 2n * sum + previous * 2n) * sum / ((this.amplifier * 2n - 1n) * sum + (2n + 1n) * previous)
     }
 
     // /**
@@ -170,11 +144,11 @@ class Curve {
     // }
 }
 
-// const reserve0 = 3432247548
-// const reserve1 = 6169362700
+const reserve0 = 3432247548n
+const reserve1 = 6169362700n
 const amplifier = 450n
-const reserve0 = 8000000n
-const reserve1 = 12000000n
+// const reserve0 = 8000000n
+// const reserve1 = 12000000n
 // const deposits = [reserve0, reserve1]
 const c = new Curve(amplifier, reserve0, reserve1)
 // console.log("xp()", c.xp());

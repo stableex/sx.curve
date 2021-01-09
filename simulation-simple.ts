@@ -152,14 +152,11 @@ class Curve {
     }
 }
 
-// const reserve0 = 3432247548
-// const reserve1 = 6169362700
-// const reserve0 = 10000000
-// const reserve1 = 10000000
-
 const amplifier = 450
-const reserve0 = 8000000
-const reserve1 = 12000000
+const reserve0 = 3432247548
+const reserve1 = 6169362700
+// const reserve0 = 8000000
+// const reserve1 = 12000000
 
 const deposits = [reserve0, reserve1]
 const c = new Curve(amplifier, deposits)
