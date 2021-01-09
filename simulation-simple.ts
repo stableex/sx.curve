@@ -22,15 +22,20 @@ class Curve {
      * n: number of currencies
      * p: target prices
      */
-    constructor( amplifier: number, deposits: number[] ) {
-        this.A = amplifier
-        this.n = deposits.length;
+    constructor( A: number, D: number[] ) {
+        this.A = A
+        this.n = D.length;
         this.p = Array(this.n).fill(PRECISION);
-        this.x = deposits;
+        this.x = D;
     }
 
+    // public xp(): number[] {
+    //     return zip(this.x, this.p).map(([x, p]) => Math.floor(x * p / PRECISION))
+    // }
+
     public xp(): number[] {
-        return zip(this.x, this.p).map(([x, p]) => Math.floor(x * p / PRECISION))
+        return [this.x[0] * this.p[0] / PRECISION, this.x[1] * this.p[1] / PRECISION];
+        // return zip(this.x, this.p).map(([x, p]) => Math.floor(x * p / PRECISION))
     }
 
     /**
@@ -147,11 +152,18 @@ class Curve {
     }
 }
 
-const reserve0 = 34322475.48 * PRECISION
-const reserve1 = 61693627.00 * PRECISION
+// const reserve0 = 3432247548
+// const reserve1 = 6169362700
+// const reserve0 = 10000000
+// const reserve1 = 10000000
+
+const amplifier = 450
+const reserve0 = 8000000
+const reserve1 = 12000000
+
 const deposits = [reserve0, reserve1]
-const c = new Curve(450, deposits)
-// console.log(c.xp());
-// console.log(c.D());
-// console.log(c.y(1, 2, 3));
-console.log("exchange", c.exchange(0, 1, 400000 * PRECISION));
+const c = new Curve(amplifier, deposits)
+console.log("xp()", c.xp());
+console.log("D()", c.D());
+console.log("y(1,2,3)", c.y(1, 2, 3));
+console.log("exchange", c.exchange(0, 1, 100000));

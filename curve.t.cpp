@@ -6,26 +6,18 @@
 
 #include "curve.hpp"
 
-TEST_CASE( "get_amount_out #1 (pass)" ) {
-    // Inputs
-    const uint64_t amount_in = 1000000;
-    const uint64_t reserve_in = 100000000;
-    const uint64_t reserve_out = 100000000;
-
-    // Calculation
-    const uint64_t amountOut = uniswap::get_amount_out( amount_in, reserve_in, reserve_out );
-
-    REQUIRE( amountOut == 9999 );
-}
-
 TEST_CASE( "get_amount_out #2 (pass)" ) {
     // Inputs
-    const uint64_t amount_in = 100000;
-    const uint64_t reserve_in = 62854618;
-    const uint64_t reserve_out = 78909405;
+    const uint16_t amplifier = 450;
+    const uint64_t reserve0 = 3432247548;
+    const uint64_t reserve1 = 6169362700;
+    const std::vector<uint64_t> reserves = { reserve0, reserve1 };
+    const curve c = curve{ amplifier, reserves };
 
-    // Calculation
-    const uint64_t amountOut = uniswap::get_amount_out( amount_in, reserve_in, reserve_out, 0, 200 );
-
-    REQUIRE( amountOut == 100079 );
+    REQUIRE( c.A == amplifier );
+    REQUIRE( c.x.size() == 2 );
+    REQUIRE( c.x[0] == reserve0 );
+    REQUIRE( c.x[1] == reserve1 );
+    REQUIRE( c.xp()[1] == reserve1 );
+    REQUIRE( c.D() == 9600668971 );
 }

@@ -173,14 +173,17 @@ class Curve:
 # n: number of currencies
 # p: target prices
 if __name__ == "__main__":
-    balance0 = 31650.61 * 10 ** 6
-    balance1 = 78911.70 * 10 ** 6
-    balance2 = 256024.53 * 10 ** 6
+    AMPLIFIER = 450
+    PRECISION = 10 ** 6
+    # reserve0 = 34322475.48
+    # reserve1 = 61693627.00
+    reserve0 = 8000000
+    reserve1 = 12000000
 
-    total = [balance0, balance1, balance2]
-    c = Curve(2000, total, 3)
+    total = [reserve0, reserve1]
+    c = Curve(AMPLIFIER, total, 2)
     # print(c.xp())
-    # print(c.D())
+    print(c.D())
     # print(c.y(1,2,3))
     # print(c.y_D(10000,10000))
-    print( "exchange:", c.exchange(0, 1, 10000 * 10 ** 6) )
+    # print( "exchange:", c.exchange(0, 1, 400000 * PRECISION) )
