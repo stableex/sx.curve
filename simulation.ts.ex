@@ -23,13 +23,13 @@ class Curve {
         this.A = A // actually A * n ** (n - 1) because it's an invariant
         this.n = n
         this.fee = 10 ** 6 * 4 // 0.04 %
-        this.p = p ? p : Array(n).fill(10 ** 18);
-        this.x = Array.isArray(D) ? D : this.p.map(_p => Math.floor(D / n) * 10 ** Math.floor(18 / _p));
+        this.p = p ? p : Array(n).fill(10 ** 4);
+        this.x = Array.isArray(D) ? D : this.p.map(_p => Math.floor(D / n) * 10 ** Math.floor(4 / _p));
         this.tokens = tokens;
     }
 
     public xp(): number[] {
-        return zip(this.x, this.p).map(([x, p]) => Math.floor(x * p / 10 ** 18))
+        return zip(this.x, this.p).map(([x, p]) => Math.floor(x * p / 10 ** 4))
     }
 
     /**
@@ -140,8 +140,8 @@ class Curve {
         console.log("fee:", fee);
 
         if (!(dy > 0)) throw new Error();
-        this.x[i] = Math.floor(x * 10 ** 18 / this.p[i]);
-        this.x[j] = Math.floor((y + fee) * 10 ** 18 / this.p[j])
+        this.x[i] = Math.floor(x * 10 ** 4 / this.p[i]);
+        this.x[j] = Math.floor((y + fee) * 10 ** 4 / this.p[j])
         return dy - fee
     }
 }
