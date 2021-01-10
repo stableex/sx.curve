@@ -73,7 +73,9 @@ class Curve:
         for y in xx:
             c = c * D // (y * self.n)
         c = c * D // (self.n * Ann)
+        print("c", c)
         b = sum(xx) + D // Ann - D
+        print("b", b)
         y_prev = 0
         y = D
         while abs(y - y_prev) > 1:
@@ -183,7 +185,7 @@ if __name__ == "__main__":
     total = [reserve0, reserve1]
     c = Curve(AMPLIFIER, total, 2)
     # print(c.xp())
-    print(c.D())
-    # print(c.y(1,2,3))
+    # print(c.D())
+    print(c.y(0,1,100000)) # => 54605646003
     # print(c.y_D(10000,10000))
     # print( "exchange:", c.exchange(0, 1, 400000 * PRECISION) )

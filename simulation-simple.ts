@@ -10,7 +10,7 @@ const FEE = 4 * 10 ** 6;
 /**
  * Typescript model of Curve pool math.
  */
-class Curve {
+class CurveSimple {
     public A: number;
     public n: number;
     public p: number[];
@@ -78,7 +78,7 @@ class Curve {
         let xx = this.xp()
         xx[i] = x  // x is quantity of underlying asset brought to 1e18 precision
         xx = range(this.n).filter( k => k != j).map(k => xx[k]);
-
+        console.log("xx", xx)
         let Ann = this.A * this.n
         let c = D
         for (const y of xx ) {
@@ -86,6 +86,8 @@ class Curve {
         }
         c = Math.floor(c * D / (this.n * Ann))
         const b = sum(xx) + Math.floor(D / Ann) - D
+        console.log("sum(xx)", sum(xx))
+        console.log("b", BigInt(b))
         let y_prev = 0
         let y = D
         while (Math.abs(y - y_prev) > 1) {
@@ -159,8 +161,8 @@ const reserve1 = 6169362700
 // const reserve1 = 12000000
 
 const deposits = [reserve0, reserve1]
-const c = new Curve(amplifier, deposits)
-console.log("xp()", c.xp());
-console.log("D()", c.D());
-console.log("y(1,2,3)", c.y(1, 2, 3));
+const c = new CurveSimple(amplifier, deposits)
+// console.log("xp()", c.xp());
+// console.log("D()", c.D());
+console.log("y(0,1,100000)", c.y(0, 1, 100000)); // => 54605646003
 console.log("exchange", c.exchange(0, 1, 100000));
