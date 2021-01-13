@@ -5,7 +5,7 @@ const sumBigInt = (arr1: bigint[]) => arr1.reduce((a, b) => a + b, 0n);
 
 // GLOBAL SETTINGS
 const FEE_DENOMINATOR = 10n ** 10n
-const PRECISION = 10n ** 18n  // The precision to convert to
+const PRECISION = 10n ** 8n  // The precision to convert to
 const FEE = 4n * 10n ** 6n;
 
 /**
@@ -16,9 +16,6 @@ class Curve {
     public reserve0: bigint;
     public reserve1: bigint;
     public reserves: bigint[];
-
-    public n: bigint = 2n;
-    public A: bigint;
 
     /**
      * A: Amplification coefficient
@@ -31,7 +28,6 @@ class Curve {
         this.reserve0 = reserve0;
         this.reserve1 = reserve1;
         this.reserves = [reserve0, reserve1];
-        this.A = amplifier;
     }
 
     /**
@@ -65,44 +61,17 @@ class Curve {
         const D = this.D()
         let c = D
         c = c * D / (amount * 2n)
-        c = c * D / (2n * this.A * 2n)
-        const b = amount + (D / (this.A * 2n)) - D
+        c = c * D / (this.amplifier * 4n)
+        // return D;
+        const b = amount + (D / (this.amplifier * 2n)) - D
+        // return b;
         let y_prev = 0n
         let y = D
         while (Math.abs(Number(y - y_prev)) > 1) {
             y_prev = y
             y = (y ** 2n + c) / (2n * y + b)
         }
-        return y  // the result is in underlying units too
-    }
-
-    /**
-     * Calculate x[j] if one makes x[i] = x
-     *
-     * Done by solving quadratic equation iteratively.
-     * x_1**2 + x1 * (sum' - (A*n**n - 1) * D / (A * n**n)) = D ** (n + 1) / (n ** (2 * n) * prod' * A)
-     * x_1**2 + b*x_1 = c
-     *
-     * x_1 = (x_1**2 + c) / (2*x_1 + b)
-     */
-    public y_D(i: bigint, _D: bigint) {
-        let xx = this.reserves;
-        xx = range(2).filter( k => BigInt(k) != i).map(k => xx[k]);
-        const S = sumBigInt(xx);
-        const Ann = this.amplifier * this.n
-        let c = _D
-        for ( const y of xx ) {
-            c = c * _D / (y * this.n)
-        }
-        c = c * _D / (this.n * Ann)
-        const b = S + _D / Ann
-        let y_prev = 0n
-        let y = _D
-        while ( Math.abs(Number(y - y_prev)) > 1 ) {
-            y_prev = y
-            y = (y ** 2n + c) / (2n * y + b - _D)
-        }
-        return y  // the result is in underlying units too
+        return y
     }
 
     public exchange( amount_in: bigint ): bigint {

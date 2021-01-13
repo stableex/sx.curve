@@ -2,3 +2,7 @@ node_modules
 *.out
 package-lock.json
 .vscode
+nodeos
+*.abi
+*.wasm
+stderr

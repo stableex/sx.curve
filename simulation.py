@@ -188,4 +188,4 @@ if __name__ == "__main__":
     # print(c.D())
     print(c.y(0,1,100000)) # => 54605646003
     # print(c.y_D(10000,10000))
-    # print( "exchange:", c.exchange(0, 1, 400000 * PRECISION) )
+    print( "exchange:", c.exchange(0, 1, 100000) )
