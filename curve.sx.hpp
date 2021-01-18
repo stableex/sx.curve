@@ -14,7 +14,7 @@ public:
     using contract::contract;
 
     [[eosio::action]]
-    void test( const uint64_t amount );
+    void test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
 
     // /**
     //  * ## TABLE `settings`

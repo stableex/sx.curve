@@ -15,6 +15,9 @@ cleos set contract eosio.token ../eosio.token eosio.token.wasm eosio.token.abi
 # @eosio.code permission
 cleos set account permission curve.sx active --add-code
 
-# # create EOS token
-cleos push action eosio.token create '["eosio", "100000000.0000 EOS"]' -p eosio.token
-cleos push action eosio.token issue '["eosio", "5000000.0000 EOS", "init"]' -p eosio
+# create tokens
+cleos push action eosio.token create '["eosio", "100000000.0000 A"]' -p eosio.token
+cleos push action eosio.token issue '["eosio", "5000000.0000 A", "init"]' -p eosio
+
+cleos push action eosio.token create '["eosio", "100000000.0000 B"]' -p eosio.token
+cleos push action eosio.token issue '["eosio", "5000000.0000 B", "init"]' -p eosio

@@ -6,13 +6,9 @@
 using namespace std;
 
 [[eosio::action]]
-void sx::curvetest::test( const uint64_t amount ) {
-    const uint64_t amplifier = 450;
-    const uint64_t reserve0 = 3432247548;
-    const uint64_t reserve1 = 6169362700;
-    const uint64_t fee = 4;
-
-    print ("curve::get_amount_out(",amount,"): ", curve::get_amount_out(amount, reserve0, reserve1, amplifier, fee), "\n");
+void sx::curvetest::test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee )
+{
+    print ("curve::get_amount_out(",amount,"): ", curve::get_amount_out( amount, reserve_in, reserve_out, amplifier, fee ), "\n");
 
     check(false, "see print");
 }
