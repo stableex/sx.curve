@@ -9,7 +9,7 @@
 using namespace eosio;
 
 namespace sx {
-class [[eosio::contract("curve.sx")]] curve : public eosio::contract {
+class [[eosio::contract("curve.sx")]] curvetest : public eosio::contract {
 public:
     using contract::contract;
 

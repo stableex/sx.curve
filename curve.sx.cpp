@@ -3,15 +3,18 @@
 #include "curve.sx.hpp"
 #include "curve.hpp"
 
+using namespace std;
+
 [[eosio::action]]
-void sx::curve::test( const uint64_t amount ) {
-    const uint128_t amplifier = 450;
+void sx::curvetest::test( const uint64_t amount ) {
+    const uint64_t amplifier = 450;
     const uint64_t reserve0 = 3432247548;
     const uint64_t reserve1 = 6169362700;
-    const Curve c = Curve{ amplifier, reserve0, reserve1 };
+    const uint64_t fee = 4;
 
-    // print( "c.amplifier: " + to_string( c.amplifier ) + "\n");
-    // print( "c.y(100000): " + to_string( c.y(100000) ) + "\n");
+    print ("curve::get_amount_out(",amount,"): ", curve::get_amount_out(amount, reserve0, reserve1, amplifier, fee), "\n");
+
+    check(false, "see print");
 }
 
 // /**

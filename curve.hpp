@@ -1,65 +1,74 @@
 #pragma once
 
-#include <sx.safemath/safemath.hpp>
-#include <math.h>
+//#include <sx.safemath/safemath.hpp>
+//#include <math.h>
+//#include <eosio/print.hpp>
 
-class Curve
-{
-public:
-    // GLOBAL SETTINGS
-    static constexpr uint64_t FEE_DENOMINATOR = 10000000000; // 10 ** 10
-    static constexpr uint64_t PRECISION = 100000000; // 10 ** 8;  // The precision to convert to
-    static constexpr uint64_t FEE = 4000000; // 4 * 10 ** 6;
+using namespace eosio;
 
-    // SIMPLE params
-    int16_t amplifier;
-    uint64_t reserve0;
-    uint64_t reserve1;
-    std::vector<uint64_t> reserves;
 
+namespace curve {
     /**
-     * A: Amplification coefficient
-     * D: Total deposit size
-     * n: number of currencies
-     * p: target prices
-     */
-    explicit Curve( const int16_t amplifier, const uint64_t reserve0, const uint64_t reserve1 )
-    :amplifier(amplifier), reserve0{reserve0}, reserve1{reserve1} {
-        reserves = { reserve0, reserve1 };
-    }
-
-    uint64_t D () const {
-        const uint128_t sum = reserve0 + reserve1;
-        uint128_t previous = sum;
-        for ( const uint128_t reserve : reserves ) {
-            previous = previous * sum / (2 * reserve);
-        }
-        return (amplifier * 2 * sum + previous * 2) * sum / ((amplifier * 2 - 1) * sum + (2 + 1) * previous);
-    }
-
-    /**
-     * Calculate x[j] if one makes x[i] = x
+     * ## STATIC `get_amount_out`
      *
-     * Done by solving quadratic equation iteratively.
-     * x_1**2 + x1 * (sum' - (A*n**n - 1) * D / (A * n**n)) = D ** (n + 1) / (n ** (2 * n) * prod' * A)
-     * x_1**2 + b*x_1 = c
+     * Given an input amount, reserves pair and amplifier, returns the output amount of the other asset based on Curve formula
+     * Whitepaper: https://www.curve.fi/stableswap-paper.pdf
+     * Python implementation: https://github.com/curvefi/curve-contract/blob/master/tests/simulation.py
      *
-     * x_1 = (x_1**2 + c) / (2*x_1 + b)
+     * ### params
+     *
+     * - `{uint64_t} amount_in` - amount input
+     * - `{uint64_t} reserve_in` - reserve input
+     * - `{uint64_t} reserve_out` - reserve output
+     * - `{uint64_t} amplifier` - amplifier
+     * - `{uint8_t} [fee=4]` - (optional) trade fee (pips 1/100 of 1%)
+     *
+     * ### example
+     *
+     * ```c++
+     * // Inputs
+     * const uint64_t amount_in = 100000;
+     * const uint64_t reserve_in = 3432247548;
+     * const uint64_t reserve_out = 6169362700;
+     * cont uint64_t amplifier = 450;
+     * const uint8_t fee = 4;
+     *
+     * // Calculation
+     * const uint64_t amount_out = curve::get_amount_out( amount_in, reserve_in, reserve_out, amplifier, fee );
+     * // => 100110
+     * ```
      */
-    uint128_t y( const int64_t amount ) const {
-        const int64_t _D = D();
-        uint128_t c = _D;
-        c = (c * _D) / (amount * 2);
-        c = (c * _D) / (amplifier * 4);
-        const int64_t b = amount + (_D / (amplifier * 2)) - _D;
-        uint64_t y_prev = 0;
-        uint64_t _y = _D;
-        while (abs(int(_y - y_prev)) > 1) {
-            y_prev = _y;
-            // _y = uint128_t(uint64_t(pow(_y, 2)));
-            _y = (uint128_t(uint64_t(pow(_y, 2))) + c) / (2 * _y + b);
-            // _y = (pow(_y, 2) + c) / (2 * _y + b);
+    static uint64_t get_amount_out( const uint64_t amount_in, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint8_t fee = 4 )
+    {
+        eosio::check(amount_in > 0, "SX.Curve: INSUFFICIENT_INPUT_AMOUNT");
+        eosio::check(amplifier > 0, "SX.Curve: WRONG_AMPLIFIER");
+        eosio::check(reserve_in > 0 && reserve_out > 0, "SX.Curve: INSUFFICIENT_LIQUIDITY");
+        eosio::check(fee <= 100, "SX.Curve: FEE_TOO_HIGH");
+
+        // calculate invariant D by solving quadratic equation:
+        // A * sum * n^n + D = A * D * n^n + D^(n+1) / (n^n * prod), where n==2
+        const uint64_t sum = reserve_in + reserve_out;
+        uint128_t D = sum, D_prev = 0;
+        while (D != D_prev) {
+            uint128_t prod1 = D * D / (reserve_in * 2) * D / (reserve_out * 2);
+            D_prev = D;
+            D = 2 * D * (amplifier * sum + prod1) / ((2 * amplifier - 1) * D + 3 * prod1);
         }
-        return _y;
+
+        // calculate x - new value for reserve_out by solving quadratic equation iteratively:
+        // x^2 + x * (sum' - (An^n - 1) * D / (An^n)) = D ^ (n + 1) / (n^(2n) * prod' * A), where n==2
+        // x^2 + b*x = c
+        const int64_t b = (reserve_in + amount_in) + (D / (amplifier * 2)) - D;
+        const uint128_t c = D * D / ((reserve_in + amount_in) * 2) * D / (amplifier * 4);
+        uint128_t x = D, x_prev = 0;
+        while (x != x_prev) {
+            x_prev = x;
+            x = (x * x + c) / (2 * x + b);
+        }
+
+        check(reserve_out > x, "SX.Curve: INSUFFICIENT_RESERVE_OUT");
+        uint64_t amount_out = reserve_out - (uint64_t)x;
+
+        return amount_out - fee * amount_out / 10000;
     }
-};
+}
