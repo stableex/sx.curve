@@ -11,7 +11,7 @@
     "scripts": {
         "build": "tsc",
         "prepublishOnly": "npm run test && npm run build",
-        "test": "jest --coverage __tests__/**.test.ts"
+        "test": "jest --coverage curve.test.ts"
     },
     "repository": {
         "type": "git",

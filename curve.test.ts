@@ -1,4 +1,4 @@
-import { get_amount_out } from "../curve";
+import { get_amount_out } from "./curve";
 
 test("get_amount_out", () => {
     const amount_in = 100000n
