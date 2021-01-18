@@ -6,3 +6,4 @@ nodeos
 *.abi
 *.wasm
 stderr
+coverage

@@ -67,7 +67,7 @@ namespace curve {
         }
 
         check(reserve_out > x, "SX.Curve: INSUFFICIENT_RESERVE_OUT");
-        uint64_t amount_out = reserve_out - (uint64_t)x;
+        const uint64_t amount_out = reserve_out - (uint64_t)x;
 
         return amount_out - fee * amount_out / 10000;
     }
