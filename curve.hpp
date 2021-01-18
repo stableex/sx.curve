@@ -7,7 +7,7 @@
 using namespace eosio;
 
 
-namespace curve {
+namespace Curve {
     /**
      * ## STATIC `get_amount_out`
      *

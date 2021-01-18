@@ -3,9 +3,6 @@
 # unlock wallet
 cleos wallet unlock --password $(cat ~/eosio-wallet/.pass)
 
-# settings
-cleos push action curve.sx setsettings '[[20]]' -p curve.sx
-
 # Inputs
 amplifier=450
 reserve_in=5862496056
@@ -16,3 +13,13 @@ cleos -v push action curve.sx test "[10000000, $reserve_in, $reserve_out, $ampli
 cleos -v push action curve.sx test "[10000000, $reserve_out, $reserve_in, $amplifier, $fee]" -p curve.sx
 cleos -v push action curve.sx test "[10000000000, $reserve_in, $reserve_out, $amplifier, $fee]" -p curve.sx
 cleos -v push action curve.sx test "[10000000000, $reserve_out, $reserve_in, $amplifier, $fee]" -p curve.sx
+
+# settings
+cleos push action curve.sx setsettings '[[4]]' -p curve.sx
+
+# set pair
+cleos -v push action curve.sx setpair '["AB", ["1000.0000 A", "eosio.token"], ["1000.0000 B", "eosio.token"], 450]' -p curve.sx
+
+# swap
+cleos transfer myaccount curve.sx "100.0000 A" "AB"
+cleos transfer myaccount curve.sx "100.0000 B" "AB"
