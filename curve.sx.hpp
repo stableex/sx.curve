@@ -81,8 +81,16 @@ public:
         time_point_sec      last_updated;
 
         uint64_t primary_key() const { return id.raw(); }
+        uint128_t by_reserves() const { return compute_by_symcodes( reserve0.quantity.symbol.code(), reserve1.quantity.symbol.code() ); }
     };
-    typedef eosio::multi_index< "pairs"_n, pairs_row > pairs;
+    typedef eosio::multi_index< "pairs"_n, pairs_row,
+        indexed_by<"byreserves"_n, const_mem_fun<pairs_row, uint128_t, &pairs_row::by_reserves>>
+    > pairs;
+
+    static uint128_t compute_by_symcodes( const symbol_code symcode0, const symbol_code symcode1 ) {
+        return symcode0.raw() + symcode1.raw();
+        // return ((uint128_t) symcode0.raw()) << 64 | symcode1.raw();
+    }
 
     [[eosio::action]]
     void setsettings( const std::optional<sx::curve::settings_row> settings );
@@ -103,6 +111,9 @@ private:
     void transfer( const name from, const name to, const extended_asset value, const string memo );
     void retire( const extended_asset value, const string memo );
     void issue( const extended_asset value, const string memo );
+
+    // sx curve
+    symbol_code find_pair_id( const symbol_code symcode0, const symbol_code symcode1 );
 
     // maintenance
     template <typename T>

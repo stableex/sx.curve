@@ -35,9 +35,13 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     // TEMP - DURING TESTING PERIOD
     check( from.suffix() == "sx"_n || from == "myaccount"_n, "account must be *.sx");
 
-    // check incoming transfer
+    // user input params
     const name contract = get_first_receiver();
-    const auto& pairs = _pairs.get( sx::utils::parse_symbol_code(memo).raw(), "pair id does not exist");
+    const symbol_code memo_symcode = sx::utils::parse_symbol_code(memo);
+    const symbol_code pair_id = find_pair_id( quantity.symbol.code(), memo_symcode );
+
+    // check incoming transfer
+    const auto& pairs = _pairs.get( pair_id.raw(), "pair id does not exist");
     const bool is_in = pairs.reserve0.quantity.symbol == quantity.symbol;
     const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
     const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
@@ -70,6 +74,28 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
 
     // transfer amount to sender
     transfer( get_self(), from, out, "swap" );
+}
+
+symbol_code sx::curve::find_pair_id( const symbol_code symcode0, const symbol_code symcode1 )
+{
+    sx::curve::pairs _pairs( get_self(), get_self().value );
+
+    // find by input quantity
+    auto itr0 = _pairs.find( symcode0.raw() );
+    if ( itr0 != _pairs.end() ) return itr0->id;
+
+    // find by memo symbol
+    auto itr1 = _pairs.find( symcode1.raw() );
+    if ( itr1 != _pairs.end() ) return itr1->id;
+
+    // find by combination of input quantity & memo symbol
+    auto _pairs_by_reserves = _pairs.get_index<"byreserves"_n>();
+    auto itr = _pairs_by_reserves.find( compute_by_symcodes( symcode0, symcode1 ) );
+    if ( itr != _pairs_by_reserves.end() ) return itr->id;
+
+    check( symcode0 != symcode1, "memo symbol must not match quantity symbol");
+    check( false, "cannot find pair id for symcode0 or symcode1");
+    return {};
 }
 
 [[eosio::action]]
