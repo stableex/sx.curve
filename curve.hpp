@@ -58,7 +58,7 @@ namespace Curve {
         // calculate x - new value for reserve_out by solving quadratic equation iteratively:
         // x^2 + x * (sum' - (An^n - 1) * D / (An^n)) = D ^ (n + 1) / (n^(2n) * prod' * A), where n==2
         // x^2 + b*x = c
-        const int64_t b = (reserve_in + amount_in) + (D / (amplifier * 2)) - D;
+        const int64_t b = (int64_t) ((reserve_in + amount_in) + (D / (amplifier * 2))) - (int64_t) D;
         const uint128_t c = D * D / ((reserve_in + amount_in) * 2) * D / (amplifier * 4);
         uint128_t x = D, x_prev = 0;
         while (x != x_prev) {
