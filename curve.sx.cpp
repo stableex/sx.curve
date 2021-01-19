@@ -33,30 +33,38 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     auto settings = _settings.get();
 
     // TEMP - DURING TESTING PERIOD
-    // check( from.suffix() == "sx"_n || from == "eosnationinc"_n, "account must be *.sx");
+    check( from.suffix() == "sx"_n || from == "myaccount"_n, "account must be *.sx");
 
     // check incoming transfer
     const name contract = get_first_receiver();
     const auto& pairs = _pairs.get( sx::utils::parse_symbol_code(memo).raw(), "pair id does not exist");
-    const bool reverse = pairs.reserve0.quantity.symbol == quantity.symbol;
-    const extended_asset reserve_in = reverse ? pairs.reserve0 : pairs.reserve1;
-    const extended_asset reserve_out = reverse ? pairs.reserve1 : pairs.reserve0;
+    const bool is_in = pairs.reserve0.quantity.symbol == quantity.symbol;
+    const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
+    const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
     check( reserve_in.contract == contract, "reserve_in contract mismatch");
     check( reserve_in.quantity.symbol == quantity.symbol, "reserve_in symbol mismatch");
 
     // calculate out
-    const int64_t amount_out = Curve::get_amount_out( quantity.amount, reserve_in.quantity.amount, reserve_out.quantity.amount, pairs.amplifier, settings.fee );
+    const int64_t amount_out = sx::curve::get_amount_out( quantity.amount, reserve_in.quantity.amount, reserve_out.quantity.amount, pairs.amplifier, settings.fee );
     const extended_asset out = { amount_out, reserve_out.get_extended_symbol() };
 
     // modify reserves
     _pairs.modify( pairs, get_self(), [&]( auto & row ) {
-        if ( reverse ) {
+        if ( is_in ) {
             row.reserve0.quantity += quantity;
             row.reserve1.quantity -= out.quantity;
         } else {
             row.reserve0.quantity -= out.quantity;
             row.reserve1.quantity += quantity;
         }
+        // calculate last price
+        const double price = static_cast<double>(quantity.amount) / out.quantity.amount;
+        row.price0_last = is_in ? 1 / price : price;
+        row.price1_last = is_in ? price : 1 / price;
+
+        // calculate incoming culmative trading volume
+        row.volume0 += is_in ? quantity.amount : 0;
+        row.volume1 += is_in ? 0 : quantity.amount;
         row.last_updated = current_time_point();
     });
 
@@ -82,7 +90,17 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     require_auth( get_self() );
     sx::curve::pairs _pairs( get_self(), get_self().value );
 
-    // check input
+    // reserve params
+    const name contract0 = reserve0.contract;
+    const name contract1 = reserve1.contract;
+    const symbol sym0 = reserve0.quantity.symbol;
+    const symbol sym1 = reserve1.quantity.symbol;
+
+    // check reserves
+    check( is_account( contract0 ), "reserve0 contract does not exists");
+    check( is_account( contract1 ), "reserve1 contract does not exists");
+    check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "reserve0 symbol mismatch" );
+    check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
     check( reserve0.quantity.symbol.precision() == reserve1.quantity.symbol.precision(), "reserve0 & reserve0 precision must match");
     check( reserve0.quantity.amount == reserve1.quantity.amount, "reserve0 & reserve0 amount must match");
 
