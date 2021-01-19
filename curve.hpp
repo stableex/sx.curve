@@ -49,7 +49,7 @@ namespace Curve {
         // A * sum * n^n + D = A * D * n^n + D^(n+1) / (n^n * prod), where n==2
         const uint64_t sum = reserve_in + reserve_out;
         uint128_t D = sum, D_prev = 0;
-        while (D != D_prev) {
+        while (abs((int64_t) D - (int64_t) D_prev) > 1) {
             uint128_t prod1 = D * D / (reserve_in * 2) * D / (reserve_out * 2);
             D_prev = D;
             D = 2 * D * (amplifier * sum + prod1) / ((2 * amplifier - 1) * D + 3 * prod1);
@@ -61,7 +61,7 @@ namespace Curve {
         const int64_t b = (int64_t) ((reserve_in + amount_in) + (D / (amplifier * 2))) - (int64_t) D;
         const uint128_t c = D * D / ((reserve_in + amount_in) * 2) * D / (amplifier * 4);
         uint128_t x = D, x_prev = 0;
-        while (x != x_prev) {
+        while (abs((int64_t) x - (int64_t) x_prev) > 1) {
             x_prev = x;
             x = (x * x + c) / (2 * x + b);
         }
