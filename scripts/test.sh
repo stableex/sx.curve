@@ -23,3 +23,5 @@ cleos -v push action curve.sx setpair '["AB", ["1000.0000 A", "eosio.token"], ["
 # swap
 cleos transfer myaccount curve.sx "100.0000 A" "AB"
 cleos transfer myaccount curve.sx "100.0000 B" "AB"
+cleos transfer myaccount curve.sx "100.0000 A" "B"
+cleos transfer myaccount curve.sx "100.0000 B" "A"
