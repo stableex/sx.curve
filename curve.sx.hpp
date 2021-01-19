@@ -88,8 +88,7 @@ public:
     > pairs;
 
     static uint128_t compute_by_symcodes( const symbol_code symcode0, const symbol_code symcode1 ) {
-        return symcode0.raw() + symcode1.raw();
-        // return ((uint128_t) symcode0.raw()) << 64 | symcode1.raw();
+        return ((uint128_t) symcode0.raw()) << 64 | symcode1.raw();
     }
 
     [[eosio::action]]

@@ -93,6 +93,9 @@ symbol_code sx::curve::find_pair_id( const symbol_code symcode0, const symbol_co
     auto itr = _pairs_by_reserves.find( compute_by_symcodes( symcode0, symcode1 ) );
     if ( itr != _pairs_by_reserves.end() ) return itr->id;
 
+    itr = _pairs_by_reserves.find( compute_by_symcodes( symcode1, symcode0 ) );
+    if ( itr != _pairs_by_reserves.end() ) return itr->id;
+
     check( symcode0 != symcode1, "memo symbol must not match quantity symbol");
     check( false, "cannot find pair id for symcode0 or symcode1");
     return {};
