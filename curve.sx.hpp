@@ -111,6 +111,9 @@ private:
     void retire( const extended_asset value, const string memo );
     void issue( const extended_asset value, const string memo );
 
+    //helper to parse memo
+    extended_asset parse_memo(string memo);
+
     // sx curve
     symbol_code find_pair_id( const symbol_code symcode0, const symbol_code symcode1 );
 

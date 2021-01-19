@@ -37,7 +37,8 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
 
     // user input params
     const name contract = get_first_receiver();
-    const symbol_code memo_symcode = sx::utils::parse_symbol_code(memo);
+    const extended_asset min_ext_out = parse_memo(memo);
+    const symbol_code memo_symcode = min_ext_out.quantity.symbol.code();
     const symbol_code pair_id = find_pair_id( quantity.symbol.code(), memo_symcode );
 
     // check incoming transfer
@@ -51,6 +52,10 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     // calculate out
     const int64_t amount_out = Curve::get_amount_out( quantity.amount, reserve_in.quantity.amount, reserve_out.quantity.amount, pairs.amplifier, settings.fee );
     const extended_asset out = { amount_out, reserve_out.get_extended_symbol() };
+
+    check(min_ext_out.contract.value == 0 || min_ext_out.contract == reserve_out.contract, "reserve_out vs memo contract mismatch");
+    check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.symbol == out.quantity.symbol, "return vs memo symbol precision mismatch");
+    check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.amount <= amount_out, "return is not enough");
 
     // modify reserves
     _pairs.modify( pairs, get_self(), [&]( auto & row ) {
@@ -76,28 +81,45 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     transfer( get_self(), from, out, "swap" );
 }
 
-symbol_code sx::curve::find_pair_id( const symbol_code symcode0, const symbol_code symcode1 )
+
+extended_asset sx::curve::parse_memo(string memo){
+
+    auto sym_code = sx::utils::parse_symbol_code(memo);
+    if(sym_code.is_valid()) return { asset {0, symbol{sym_code, 0} }, ""_n};
+
+    auto quantity = sx::utils::parse_asset(memo);
+    if(quantity.is_valid()) return {quantity, ""_n};
+
+    auto ext_out = sx::utils::parse_extended_asset(memo);
+    if(ext_out.quantity.is_valid()) return ext_out;
+
+    check(false, "invalid memo");
+    return {};
+}
+
+symbol_code sx::curve::find_pair_id( const symbol_code in_symcode, const symbol_code memo_symcode )
 {
+    check( in_symcode != memo_symcode, "memo symbol must not match quantity symbol");
+
     sx::curve::pairs _pairs( get_self(), get_self().value );
 
     // find by input quantity
-    auto itr0 = _pairs.find( symcode0.raw() );
+    auto itr0 = _pairs.find( in_symcode.raw() );
     if ( itr0 != _pairs.end() ) return itr0->id;
 
     // find by memo symbol
-    auto itr1 = _pairs.find( symcode1.raw() );
+    auto itr1 = _pairs.find( memo_symcode.raw() );
     if ( itr1 != _pairs.end() ) return itr1->id;
 
     // find by combination of input quantity & memo symbol
     auto _pairs_by_reserves = _pairs.get_index<"byreserves"_n>();
-    auto itr = _pairs_by_reserves.find( compute_by_symcodes( symcode0, symcode1 ) );
+    auto itr = _pairs_by_reserves.find( compute_by_symcodes( in_symcode, memo_symcode ) );
     if ( itr != _pairs_by_reserves.end() ) return itr->id;
 
-    itr = _pairs_by_reserves.find( compute_by_symcodes( symcode1, symcode0 ) );
+    itr = _pairs_by_reserves.find( compute_by_symcodes( memo_symcode, in_symcode ) );
     if ( itr != _pairs_by_reserves.end() ) return itr->id;
 
-    check( symcode0 != symcode1, "memo symbol must not match quantity symbol");
-    check( false, "cannot find pair id for symcode0 or symcode1");
+    check( false, "cannot find pair id for input quantity and memo");
     return {};
 }
 
