@@ -45,7 +45,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     check( reserve_in.quantity.symbol == quantity.symbol, "reserve_in symbol mismatch");
 
     // calculate out
-    const int64_t amount_out = sx::curve::get_amount_out( quantity.amount, reserve_in.quantity.amount, reserve_out.quantity.amount, pairs.amplifier, settings.fee );
+    const int64_t amount_out = Curve::get_amount_out( quantity.amount, reserve_in.quantity.amount, reserve_out.quantity.amount, pairs.amplifier, settings.fee );
     const extended_asset out = { amount_out, reserve_out.get_extended_symbol() };
 
     // modify reserves
