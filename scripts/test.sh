@@ -33,6 +33,8 @@ cleos transfer myaccount curve.sx "100.0000 A" "B"
 cleos transfer myaccount curve.sx "100.0000 B" "A"
 cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A"
 cleos transfer myaccount curve.sx "100.0000 A" "90.0000 B@eosio.token"
+cleos transfer myaccount curve.sx "100.0000 A" "90.00000000 C@eosio.token"
+cleos transfer myaccount curve.sx "100.00000000 C" "90.0000 A"
 
 # swap must fail
 printf "\nTransactions below must ${RED}FAIL${NOCOLOR}\n\n"
@@ -42,3 +44,4 @@ cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A@curve.sx"
 cleos transfer myaccount curve.sx "100.0000 B" "90 A@eosio.token"
 cleos transfer myaccount curve.sx "100.0000 A" "10 B"
 cleos transfer myaccount curve.sx "100.0000 B" "120.0000 A"
+cleos transfer myaccount curve.sx "100.0000 A" "90.000000 C@eosio.token"
