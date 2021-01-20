@@ -116,6 +116,8 @@ private:
 
     // sx curve
     symbol_code find_pair_id( const symbol_code symcode0, const symbol_code symcode1 );
+    int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 );
+    int64_t div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 );
 
     // maintenance
     template <typename T>

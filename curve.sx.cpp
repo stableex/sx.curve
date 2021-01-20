@@ -46,12 +46,23 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     const bool is_in = pairs.reserve0.quantity.symbol == quantity.symbol;
     const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
     const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
+    const symbol sym_in = reserve_in.quantity.symbol;
+    const symbol sym_out = reserve_out.quantity.symbol;
     check( reserve_in.contract == contract, "reserve_in contract mismatch");
-    check( reserve_in.quantity.symbol == quantity.symbol, "reserve_in symbol mismatch");
+    check( sym_in == quantity.symbol, "reserve_in symbol mismatch");
+
+    // max precision
+    const uint8_t max_precision = max( sym_in.precision(), reserve_out.quantity.symbol.precision() );
 
     // calculate out
-    const int64_t amount_out = Curve::get_amount_out( quantity.amount, reserve_in.quantity.amount, reserve_out.quantity.amount, pairs.amplifier, settings.fee );
-    const extended_asset out = { amount_out, reserve_out.get_extended_symbol() };
+    const int64_t amount_out = Curve::get_amount_out(
+        mul_amount( quantity.amount, max_precision, quantity.symbol.precision() ),
+        mul_amount( reserve_in.quantity.amount, max_precision, sym_in.precision() ),
+        mul_amount( reserve_out.quantity.amount, max_precision, sym_out.precision() ),
+        pairs.amplifier,
+        settings.fee
+    );
+    const extended_asset out = { div_amount( amount_out, max_precision, sym_out.precision() ), reserve_out.get_extended_symbol() };
 
     check(min_ext_out.contract.value == 0 || min_ext_out.contract == reserve_out.contract, "reserve_out vs memo contract mismatch");
     check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.symbol == out.quantity.symbol, "return vs memo symbol precision mismatch");
@@ -81,17 +92,26 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     transfer( get_self(), from, out, "swap" );
 }
 
+int64_t sx::curve::mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
+{
+    return amount * pow(10, precision0 - precision1 );
+}
+
+int64_t sx::curve::div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
+{
+    return amount / pow(10, precision0 - precision1 );
+}
 
 extended_asset sx::curve::parse_memo(string memo){
 
     auto sym_code = sx::utils::parse_symbol_code(memo);
-    if(sym_code.is_valid()) return { asset {0, symbol{sym_code, 0} }, ""_n};
+    if (sym_code.is_valid()) return {{0, {sym_code, 0}}, ""_n};
 
     auto quantity = sx::utils::parse_asset(memo);
-    if(quantity.is_valid()) return {quantity, ""_n};
+    if (quantity.is_valid()) return {quantity, ""_n};
 
     auto ext_out = sx::utils::parse_extended_asset(memo);
-    if(ext_out.quantity.is_valid()) return ext_out;
+    if (ext_out.quantity.is_valid()) return ext_out;
 
     check(false, "invalid memo");
     return {};
@@ -146,14 +166,14 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     const name contract1 = reserve1.contract;
     const symbol sym0 = reserve0.quantity.symbol;
     const symbol sym1 = reserve1.quantity.symbol;
+    const uint8_t max_precision = max( sym0.precision(), sym1.precision() );
 
     // check reserves
     check( is_account( contract0 ), "reserve0 contract does not exists");
     check( is_account( contract1 ), "reserve1 contract does not exists");
     check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "reserve0 symbol mismatch" );
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
-    check( reserve0.quantity.symbol.precision() == reserve1.quantity.symbol.precision(), "reserve0 & reserve0 precision must match");
-    check( reserve0.quantity.amount == reserve1.quantity.amount, "reserve0 & reserve0 amount must match");
+    check( mul_amount(reserve0.quantity.amount, sym0.precision(), max_precision) == mul_amount(reserve1.quantity.amount, sym1.precision(), max_precision), "reserve0 & reserve1 amount must match");
 
     // pairs content
     auto insert = [&]( auto & row ) {

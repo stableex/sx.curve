@@ -19,6 +19,7 @@ cleos push action curve.sx setsettings '[[4]]' -p curve.sx
 
 # set pair
 cleos -v push action curve.sx setpair '["AB", ["1000.0000 A", "eosio.token"], ["1000.0000 B", "eosio.token"], 100]' -p curve.sx
+cleos -v push action curve.sx setpair '["AC", ["1000.0000 A", "eosio.token"], ["1000.00000000 C", "eosio.token"], 100]' -p curve.sx
 
 NOCOLOR='\033[0m'
 RED='\033[0;31m'
