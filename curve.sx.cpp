@@ -173,7 +173,7 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     check( is_account( contract1 ), "reserve1 contract does not exists");
     check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "reserve0 symbol mismatch" );
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
-    check( mul_amount(reserve0.quantity.amount, sym0.precision(), max_precision) == mul_amount(reserve1.quantity.amount, sym1.precision(), max_precision), "reserve0 & reserve1 amount must match");
+    check( mul_amount(reserve0.quantity.amount, max_precision, sym0.precision()) == mul_amount(reserve1.quantity.amount, max_precision, sym1.precision()), "reserve0 & reserve1 amount must match");
 
     // pairs content
     auto insert = [&]( auto & row ) {
