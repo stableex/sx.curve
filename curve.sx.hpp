@@ -4,7 +4,6 @@
 #include <eosio/asset.hpp>
 #include <eosio/singleton.hpp>
 
-#include <sx.curve/curve.hpp>
 
 #include <optional>
 

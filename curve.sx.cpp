@@ -1,8 +1,8 @@
 #include <eosio.token/eosio.token.hpp>
 #include <sx.utils/utils.hpp>
+#include <sx.curve/curve.hpp>
 
 #include "curve.sx.hpp"
-#include "curve.hpp"
 
 using namespace std;
 
