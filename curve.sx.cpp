@@ -20,6 +20,8 @@ void sx::curve::test( const uint64_t amount, const uint64_t reserve_in, const ui
 [[eosio::on_notify("*::transfer")]]
 void sx::curve::on_transfer( const name from, const name to, const asset quantity, const string memo )
 {
+    print("Received ", quantity, " from ", from, " with memo \"", memo, "\"");
+
     // authenticate incoming `from` account
     require_auth( from );
 
@@ -37,7 +39,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
 
     // user input params
     const name contract = get_first_receiver();
-    const extended_asset min_ext_out = parse_memo(memo);
+    const auto [ min_ext_out, receiver ] = parse_memo(memo);
     const symbol_code memo_symcode = min_ext_out.quantity.symbol.code();
     const symbol_code pair_id = find_pair_id( quantity.symbol.code(), memo_symcode );
 
@@ -89,7 +91,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     });
 
     // transfer amount to sender
-    transfer( get_self(), from, out, "swap" );
+    transfer( get_self(), receiver.value ? receiver : from, out, "swap" );
 }
 
 int64_t sx::curve::mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
@@ -102,16 +104,28 @@ int64_t sx::curve::div_amount( const int64_t amount, const uint8_t precision0, c
     return amount / pow(10, precision0 - precision1 );
 }
 
-extended_asset sx::curve::parse_memo(string memo){
+pair<extended_asset, name> sx::curve::parse_memo(string memo){
+
+    name receiver;
+    auto arr = sx::utils::split(memo, ",");
+
+    check(arr.size() < 3 && arr.size() > 0, "invalid memo format");
+    if(arr.size()==2) {
+        receiver = sx::utils::parse_name(arr[1]);
+        check(receiver.value, "invalid receiver name in memo");
+        check(is_account(receiver), "receiver doesn't exist on the blockchain");
+    }
+
+    memo = arr[0];
 
     auto sym_code = sx::utils::parse_symbol_code(memo);
-    if (sym_code.is_valid()) return {{0, {sym_code, 0}}, ""_n};
+    if (sym_code.is_valid()) return { extended_asset{ asset{0, symbol{sym_code, 0} }, ""_n}, receiver };
 
     auto quantity = sx::utils::parse_asset(memo);
-    if (quantity.is_valid()) return {quantity, ""_n};
+    if (quantity.is_valid()) return { extended_asset{quantity, ""_n}, receiver };
 
     auto ext_out = sx::utils::parse_extended_asset(memo);
-    if (ext_out.quantity.is_valid()) return ext_out;
+    if (ext_out.quantity.is_valid()) return { ext_out, receiver };
 
     check(false, "invalid memo");
     return {};
