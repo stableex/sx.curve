@@ -110,11 +110,19 @@ private:
     void retire( const extended_asset value, const string memo );
     void issue( const extended_asset value, const string memo );
 
-    //helper to parse memo
+    // helper to parse memo
     pair<extended_asset, name> parse_memo(string memo);
 
-    // sx curve
-    symbol_code find_pair_id( const symbol_code symcode0, const symbol_code symcode1 );
+    // find pair_id based on symbol_code of incoming tokens and memo
+    symbol_code find_pair_id( const symbol_code symcode_in, const symbol_code symcode_memo );
+
+    // find all possible paths to trade symcode_in to memo symcode, include 2-hops
+    vector<vector<symbol_code>> find_trade_paths( symbol_code symcode_in, symbol_code symcode_memo );
+
+    //calculate out for trade via {path}, finalize it if {finalize}==true
+    extended_asset get_trade_out( extended_asset ext_quantity, const vector<symbol_code> path, const uint8_t fee, bool finalize = false );
+
+    // normalizing input for tokens with different precision
     int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 );
     int64_t div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 );
 

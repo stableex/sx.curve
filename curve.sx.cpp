@@ -39,59 +39,37 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
 
     // user input params
     const name contract = get_first_receiver();
-    const auto [ min_ext_out, receiver ] = parse_memo(memo);
+    auto [ min_ext_out, receiver ] = parse_memo(memo);
+    receiver = receiver.value ? receiver : from;
+
     const symbol_code memo_symcode = min_ext_out.quantity.symbol.code();
-    const symbol_code pair_id = find_pair_id( quantity.symbol.code(), memo_symcode );
+    const extended_asset ext_in {quantity, contract};
 
-    // check incoming transfer
-    const auto& pairs = _pairs.get( pair_id.raw(), "pair id does not exist");
-    const bool is_in = pairs.reserve0.quantity.symbol == quantity.symbol;
-    const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
-    const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
-    const symbol sym_in = reserve_in.quantity.symbol;
-    const symbol sym_out = reserve_out.quantity.symbol;
-    check( reserve_in.contract == contract, "reserve_in contract mismatch");
-    check( sym_in == quantity.symbol, "reserve_in symbol mismatch");
+    auto paths = find_trade_paths( quantity.symbol.code(), memo_symcode );
+    check(paths.size(), "no path for a trade");
 
-    // max precision
-    const uint8_t max_precision = max( sym_in.precision(), reserve_out.quantity.symbol.precision() );
-
-    // calculate out
-    const int64_t amount_out = Curve::get_amount_out(
-        mul_amount( quantity.amount, max_precision, quantity.symbol.precision() ),
-        mul_amount( reserve_in.quantity.amount, max_precision, sym_in.precision() ),
-        mul_amount( reserve_out.quantity.amount, max_precision, sym_out.precision() ),
-        pairs.amplifier,
-        settings.fee
-    );
-    const extended_asset out = { div_amount( amount_out, max_precision, sym_out.precision() ), reserve_out.get_extended_symbol() };
-
-    check(min_ext_out.contract.value == 0 || min_ext_out.contract == reserve_out.contract, "reserve_out vs memo contract mismatch");
-    check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.symbol == out.quantity.symbol, "return vs memo symbol precision mismatch");
-    check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.amount <= amount_out, "return is not enough");
-
-    // modify reserves
-    _pairs.modify( pairs, get_self(), [&]( auto & row ) {
-        if ( is_in ) {
-            row.reserve0.quantity += quantity;
-            row.reserve1.quantity -= out.quantity;
-        } else {
-            row.reserve0.quantity -= out.quantity;
-            row.reserve1.quantity += quantity;
+    auto best_path = paths[0];
+    extended_asset best_out;
+    for(const auto& path: paths) {
+        auto out = get_trade_out(ext_in, path, settings.fee);
+        print("\n   ", path[0]); if(path.size()==2) print("->", path[1]);;
+        print(" => ", out.quantity);
+        if(out.quantity.amount > best_out.quantity.amount) {
+            best_path = path;
+            best_out = out;
         }
-        // calculate last price
-        const double price = static_cast<double>(quantity.amount) / out.quantity.amount;
-        row.price0_last = is_in ? 1 / price : price;
-        row.price1_last = is_in ? price : 1 / price;
+    }
 
-        // calculate incoming culmative trading volume
-        row.volume0 += is_in ? quantity.amount : 0;
-        row.volume1 += is_in ? 0 : quantity.amount;
-        row.last_updated = current_time_point();
-    });
+    check(best_out.quantity.amount, "no matching trade");
+    check(min_ext_out.contract.value == 0 || min_ext_out.contract == best_out.contract, "reserve_out vs memo contract mismatch");
+    check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.symbol == best_out.quantity.symbol, "return vs memo symbol precision mismatch");
+    check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.amount <= best_out.quantity.amount, "return is not enough");
+
+    best_out = get_trade_out(ext_in, best_path, settings.fee, true);
 
     // transfer amount to sender
-    transfer( get_self(), receiver.value ? receiver : from, out, "swap" );
+    print("\nTransfering ", best_out, " to ", receiver);
+    transfer( get_self(), receiver, best_out, "swap" );
 }
 
 int64_t sx::curve::mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
@@ -131,29 +109,27 @@ pair<extended_asset, name> sx::curve::parse_memo(string memo){
     return {};
 }
 
-symbol_code sx::curve::find_pair_id( const symbol_code in_symcode, const symbol_code memo_symcode )
+symbol_code sx::curve::find_pair_id( const symbol_code symcode_in, const symbol_code symcode_memo )
 {
-    check( in_symcode != memo_symcode, "memo symbol must not match quantity symbol");
-
     sx::curve::pairs _pairs( get_self(), get_self().value );
 
     // find by input quantity
-    auto itr0 = _pairs.find( in_symcode.raw() );
+    auto itr0 = _pairs.find( symcode_in.raw() );
     if ( itr0 != _pairs.end() ) return itr0->id;
 
     // find by memo symbol
-    auto itr1 = _pairs.find( memo_symcode.raw() );
-    if ( itr1 != _pairs.end() ) return itr1->id;
+    auto itr1 = _pairs.find( symcode_memo.raw() );
+    if ( itr1 != _pairs.end() && (itr1->reserve0.quantity.symbol.code()==symcode_in || itr1->reserve1.quantity.symbol.code()==symcode_in)) 
+        return itr1->id;
 
     // find by combination of input quantity & memo symbol
     auto _pairs_by_reserves = _pairs.get_index<"byreserves"_n>();
-    auto itr = _pairs_by_reserves.find( compute_by_symcodes( in_symcode, memo_symcode ) );
+    auto itr = _pairs_by_reserves.find( compute_by_symcodes( symcode_in, symcode_memo ) );
     if ( itr != _pairs_by_reserves.end() ) return itr->id;
 
-    itr = _pairs_by_reserves.find( compute_by_symcodes( memo_symcode, in_symcode ) );
+    itr = _pairs_by_reserves.find( compute_by_symcodes( symcode_memo, symcode_in ) );
     if ( itr != _pairs_by_reserves.end() ) return itr->id;
 
-    check( false, "cannot find pair id for input quantity and memo");
     return {};
 }
 
@@ -242,4 +218,92 @@ void sx::curve::transfer( const name from, const name to, const extended_asset v
 {
     eosio::token::transfer_action transfer( value.contract, { from, "active"_n });
     transfer.send( from, to, value.quantity, memo );
+}
+
+
+
+vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in, symbol_code symcode_memo )
+{
+    check( symcode_in != symcode_memo, "memo symbol must not match quantity symbol");
+
+    vector<vector<symbol_code>> paths;
+
+    //if direct path exists
+    auto direct = find_pair_id(symcode_in, symcode_memo);
+    if(direct.is_valid()) paths.push_back({ direct });
+
+    //then - try to find via 2 hops
+    sx::curve::pairs _pairs( get_self(), get_self().value );
+    if(_pairs.find(symcode_memo.raw()) != _pairs.end()) return paths;    //LP token memo only for direct trades
+
+    for(const auto& row : _pairs) {
+        symbol_code sc1 = row.reserve0.quantity.symbol.code();
+        symbol_code sc2 = row.reserve1.quantity.symbol.code();
+
+        if(sc1 != symcode_in) std::swap(sc1, sc2);
+        if(sc1 != symcode_in || row.id == direct) continue;         //if this row doesn't contain our in symbol or it's a direct path - skip
+        auto hop2 = find_pair_id(sc2, symcode_memo);
+        if(hop2.is_valid()) paths.push_back({row.id, hop2});
+    }
+
+    return paths;
+}
+
+
+
+extended_asset sx::curve::get_trade_out( extended_asset ext_quantity, const vector<symbol_code> path, uint8_t fee, bool finalize /*=false*/ )
+{
+    sx::curve::pairs _pairs( get_self(), get_self().value );
+    for(auto pair_id : path) {
+        const auto& row = _pairs.get( pair_id.raw(), "pair id does not exist");
+        const bool is_in = row.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
+        const extended_asset reserve_in = is_in ? row.reserve0 : row.reserve1;
+        const extended_asset reserve_out = is_in ? row.reserve1 : row.reserve0;
+        const symbol sym_in = reserve_in.quantity.symbol;
+        const symbol sym_out = reserve_out.quantity.symbol;
+        if(reserve_in.contract != ext_quantity.contract || sym_in != ext_quantity.quantity.symbol) {
+            if(finalize) check(false, "incoming currency/reserves contract mismatch");
+            else return {};
+        }
+
+        // max precision
+        const uint8_t max_precision = max( sym_in.precision(), reserve_out.quantity.symbol.precision() );
+
+        // calculate out
+        const int64_t amount_out = Curve::get_amount_out(
+            mul_amount( ext_quantity.quantity.amount, max_precision, ext_quantity.quantity.symbol.precision() ),
+            mul_amount( reserve_in.quantity.amount, max_precision, sym_in.precision() ),
+            mul_amount( reserve_out.quantity.amount, max_precision, sym_out.precision() ),
+            row.amplifier,
+            fee
+        );
+
+        const extended_asset ext_out = { div_amount( amount_out, max_precision, sym_out.precision() ), reserve_out.get_extended_symbol() };
+
+        if(finalize) {
+            // modify reserves
+            _pairs.modify( row, get_self(), [&]( auto & row_ ) {
+                if ( is_in ) {
+                    row_.reserve0.quantity += ext_quantity.quantity;
+                    row_.reserve1.quantity -= ext_out.quantity;
+                } else {
+                    row_.reserve0.quantity -= ext_out.quantity;
+                    row_.reserve1.quantity += ext_quantity.quantity;
+                }
+                // calculate last price
+                const double price = static_cast<double>(ext_quantity.quantity.amount) / ext_out.quantity.amount;
+                row_.price0_last = is_in ? 1 / price : price;
+                row_.price1_last = is_in ? price : 1 / price;
+
+                // calculate incoming culmative trading volume
+                row_.volume0 += is_in ? ext_quantity.quantity.amount : 0;
+                row_.volume1 += is_in ? 0 : ext_quantity.quantity.amount;
+                row_.last_updated = current_time_point();
+            });
+        }
+
+        ext_quantity = ext_out;
+    }
+
+    return ext_quantity;
 }
