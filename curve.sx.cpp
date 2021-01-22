@@ -181,7 +181,8 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     // create/modify pairs
     auto itr = _pairs.find( id.raw() );
     if ( itr == _pairs.end() ) _pairs.emplace( get_self(), insert );
-    else _pairs.modify( itr, get_self(), insert );
+    else check( false, "`setpair` cannot modify, must first `delete` pair");
+    // _pairs.modify( itr, get_self(), insert );
 }
 
 [[eosio::action]]
