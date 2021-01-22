@@ -20,7 +20,7 @@ void sx::curve::test( const uint64_t amount, const uint64_t reserve_in, const ui
 [[eosio::on_notify("*::transfer")]]
 void sx::curve::on_transfer( const name from, const name to, const asset quantity, const string memo )
 {
-    print("Received ", quantity, " from ", from, " with memo \"", memo, "\"");
+    // print("Received ", quantity, " from ", from, " with memo \"", memo, "\"");
 
     // authenticate incoming `from` account
     require_auth( from );
@@ -30,7 +30,6 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
 
     // settings
     sx::curve::settings _settings( get_self(), get_self().value );
-    sx::curve::pairs _pairs( get_self(), get_self().value );
     check( _settings.exists(), "contract is under maintenance");
     auto settings = _settings.get();
 
@@ -41,19 +40,20 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     const name contract = get_first_receiver();
     auto [ min_ext_out, receiver ] = parse_memo(memo);
     receiver = receiver.value ? receiver : from;
-
     const symbol_code memo_symcode = min_ext_out.quantity.symbol.code();
     const extended_asset ext_in {quantity, contract};
 
+    // find all possible trade paths
     auto paths = find_trade_paths( quantity.symbol.code(), memo_symcode );
     check(paths.size(), "no path for a trade");
 
+    // choose trade path that gets the best return
     auto best_path = paths[0];
     extended_asset best_out;
     for(const auto& path: paths) {
-        auto out = get_trade_out(ext_in, path, settings.fee);
-        print("\n   ", path[0]); if(path.size()==2) print("->", path[1]);;
-        print(" => ", out.quantity);
+        auto out = apply_trade(ext_in, path, settings.fee);
+        // print("\n   ", path[0]); if(path.size()==2) print("->", path[1]);;
+        // print(" => ", out.quantity);
         if(out.quantity.amount > best_out.quantity.amount) {
             best_path = path;
             best_out = out;
@@ -65,10 +65,11 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.symbol == best_out.quantity.symbol, "return vs memo symbol precision mismatch");
     check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.amount <= best_out.quantity.amount, "return is not enough");
 
-    best_out = get_trade_out(ext_in, best_path, settings.fee, true);
+    // execute the trade by updating all involved pools
+    best_out = apply_trade(ext_in, best_path, settings.fee, true);
 
-    // transfer amount to sender
-    print("\nTransfering ", best_out, " to ", receiver);
+    // transfer amount to receiver
+    // print("\nTransfering ", best_out, " to ", receiver);
     transfer( get_self(), receiver, best_out, "swap" );
 }
 
@@ -119,7 +120,7 @@ symbol_code sx::curve::find_pair_id( const symbol_code symcode_in, const symbol_
 
     // find by memo symbol
     auto itr1 = _pairs.find( symcode_memo.raw() );
-    if ( itr1 != _pairs.end() && (itr1->reserve0.quantity.symbol.code()==symcode_in || itr1->reserve1.quantity.symbol.code()==symcode_in)) 
+    if ( itr1 != _pairs.end() && (itr1->reserve0.quantity.symbol.code()==symcode_in || itr1->reserve1.quantity.symbol.code()==symcode_in))
         return itr1->id;
 
     // find by combination of input quantity & memo symbol
@@ -130,6 +131,7 @@ symbol_code sx::curve::find_pair_id( const symbol_code symcode_in, const symbol_
     itr = _pairs_by_reserves.find( compute_by_symcodes( symcode_memo, symcode_in ) );
     if ( itr != _pairs_by_reserves.end() ) return itr->id;
 
+    // nothing found - return empty
     return {};
 }
 
@@ -251,7 +253,7 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in,
 
 
 
-extended_asset sx::curve::get_trade_out( extended_asset ext_quantity, const vector<symbol_code> path, uint8_t fee, bool finalize /*=false*/ )
+extended_asset sx::curve::apply_trade( extended_asset ext_quantity, const vector<symbol_code> path, uint8_t fee, bool finalize /*=false*/ )
 {
     sx::curve::pairs _pairs( get_self(), get_self().value );
     for(auto pair_id : path) {
@@ -262,8 +264,8 @@ extended_asset sx::curve::get_trade_out( extended_asset ext_quantity, const vect
         const symbol sym_in = reserve_in.quantity.symbol;
         const symbol sym_out = reserve_out.quantity.symbol;
         if(reserve_in.contract != ext_quantity.contract || sym_in != ext_quantity.quantity.symbol) {
-            if(finalize) check(false, "incoming currency/reserves contract mismatch");
-            else return {};
+            check(!finalize, "incoming currency/reserves contract mismatch");
+            return {};
         }
 
         // max precision

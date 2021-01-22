@@ -120,7 +120,7 @@ private:
     vector<vector<symbol_code>> find_trade_paths( symbol_code symcode_in, symbol_code symcode_memo );
 
     //calculate out for trade via {path}, finalize it if {finalize}==true
-    extended_asset get_trade_out( extended_asset ext_quantity, const vector<symbol_code> path, const uint8_t fee, bool finalize = false );
+    extended_asset apply_trade( extended_asset ext_quantity, const vector<symbol_code> path, const uint8_t fee, bool finalize = false );
 
     // normalizing input for tokens with different precision
     int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 );
