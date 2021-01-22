@@ -50,7 +50,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     // choose trade path that gets the best return
     auto best_path = paths[0];
     extended_asset best_out;
-    for(const auto& path: paths) {
+    for (const auto& path: paths) {
         auto out = apply_trade(ext_in, path, settings.fee);
         // print("\n   ", path[0]); if(path.size()==2) print("->", path[1]);;
         // print(" => ", out.quantity);
@@ -89,10 +89,10 @@ pair<extended_asset, name> sx::curve::parse_memo(string memo){
     auto arr = sx::utils::split(memo, ",");
 
     check(arr.size() < 3 && arr.size() > 0, "invalid memo format");
-    if(arr.size()==2) {
+    if ( arr.size() == 2 ) {
         receiver = sx::utils::parse_name(arr[1]);
         check(receiver.value, "invalid receiver name in memo");
-        check(is_account(receiver), "receiver doesn't exist on the blockchain");
+        check(is_account(receiver), "receiver account does not exist");
     }
 
     memo = arr[0];
@@ -222,8 +222,6 @@ void sx::curve::transfer( const name from, const name to, const extended_asset v
     transfer.send( from, to, value.quantity, memo );
 }
 
-
-
 vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in, symbol_code symcode_memo )
 {
     check( symcode_in != symcode_memo, "memo symbol must not match quantity symbol");
@@ -232,38 +230,36 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in,
 
     //if direct path exists
     auto direct = find_pair_id(symcode_in, symcode_memo);
-    if(direct.is_valid()) paths.push_back({ direct });
+    if (direct.is_valid()) paths.push_back({ direct });
 
     //then - try to find via 2 hops
     sx::curve::pairs _pairs( get_self(), get_self().value );
-    if(_pairs.find(symcode_memo.raw()) != _pairs.end()) return paths;    //LP token memo only for direct trades
+    if (_pairs.find(symcode_memo.raw()) != _pairs.end()) return paths;    // LP token memo only for direct trades
 
-    for(const auto& row : _pairs) {
+    for (const auto& row : _pairs) {
         symbol_code sc1 = row.reserve0.quantity.symbol.code();
         symbol_code sc2 = row.reserve1.quantity.symbol.code();
 
-        if(sc1 != symcode_in) std::swap(sc1, sc2);
-        if(sc1 != symcode_in || row.id == direct) continue;         //if this row doesn't contain our in symbol or it's a direct path - skip
+        if (sc1 != symcode_in) std::swap(sc1, sc2);
+        if (sc1 != symcode_in || row.id == direct) continue;         // if this row doesn't contain our in symbol or it's a direct path - skip
         auto hop2 = find_pair_id(sc2, symcode_memo);
-        if(hop2.is_valid()) paths.push_back({row.id, hop2});
+        if (hop2.is_valid()) paths.push_back({row.id, hop2});
     }
 
     return paths;
 }
 
-
-
-extended_asset sx::curve::apply_trade( extended_asset ext_quantity, const vector<symbol_code> path, uint8_t fee, bool finalize /*=false*/ )
+extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const vector<symbol_code> path, const uint8_t fee, const bool finalize /*=false*/ )
 {
     sx::curve::pairs _pairs( get_self(), get_self().value );
-    for(auto pair_id : path) {
+    for (auto pair_id : path) {
         const auto& row = _pairs.get( pair_id.raw(), "pair id does not exist");
         const bool is_in = row.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
         const extended_asset reserve_in = is_in ? row.reserve0 : row.reserve1;
         const extended_asset reserve_out = is_in ? row.reserve1 : row.reserve0;
         const symbol sym_in = reserve_in.quantity.symbol;
         const symbol sym_out = reserve_out.quantity.symbol;
-        if(reserve_in.contract != ext_quantity.contract || sym_in != ext_quantity.quantity.symbol) {
+        if (reserve_in.contract != ext_quantity.contract || sym_in != ext_quantity.quantity.symbol) {
             check(!finalize, "incoming currency/reserves contract mismatch");
             return {};
         }
