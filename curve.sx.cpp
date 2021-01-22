@@ -251,10 +251,10 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in,
     return paths;
 }
 
-extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const vector<symbol_code> path, const uint8_t fee, const bool finalize /*=false*/ )
+extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector<symbol_code> path, const uint8_t fee, const bool finalize /*=false*/ )
 {
     sx::curve::pairs _pairs( get_self(), get_self().value );
-    extended_asset ext_out;
+    extended_asset ext_quantity = ext_in;
     check( path.size(), "path is empty");
     for (auto pair_id : path) {
         const auto& row = _pairs.get( pair_id.raw(), "pair id does not exist");
@@ -280,7 +280,7 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
             fee
         );
 
-        ext_out = { div_amount( amount_out, max_precision, sym_out.precision() ), reserve_out.get_extended_symbol() };
+        const extended_asset ext_out { div_amount( amount_out, max_precision, sym_out.precision() ), reserve_out.get_extended_symbol() };
 
         if (finalize) {
             // modify reserves
@@ -303,7 +303,8 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
                 row_.last_updated = current_time_point();
             });
         }
+        ext_quantity = ext_out;
     }
 
-    return ext_out;
+    return ext_quantity;
 }
