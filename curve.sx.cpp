@@ -104,7 +104,8 @@ pair<extended_asset, name> sx::curve::parse_memo(string memo){
     if (quantity.is_valid()) return { extended_asset{quantity, ""_n}, receiver };
 
     auto ext_out = sx::utils::parse_extended_asset(memo);
-    if (ext_out.quantity.is_valid()) return { ext_out, receiver };
+    if ( ext_out.contract.value ) check( is_account( ext_out.contract ), "extended asset contract account does not exist");
+    if ( ext_out.quantity.is_valid()) return { ext_out, receiver };
 
     check(false, "invalid memo");
     return {};
@@ -252,6 +253,8 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in,
 extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const vector<symbol_code> path, const uint8_t fee, const bool finalize /*=false*/ )
 {
     sx::curve::pairs _pairs( get_self(), get_self().value );
+    extended_asset ext_out;
+    check( path.size(), "path is empty");
     for (auto pair_id : path) {
         const auto& row = _pairs.get( pair_id.raw(), "pair id does not exist");
         const bool is_in = row.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
@@ -276,9 +279,9 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
             fee
         );
 
-        const extended_asset ext_out = { div_amount( amount_out, max_precision, sym_out.precision() ), reserve_out.get_extended_symbol() };
+        ext_out = { div_amount( amount_out, max_precision, sym_out.precision() ), reserve_out.get_extended_symbol() };
 
-        if(finalize) {
+        if (finalize) {
             // modify reserves
             _pairs.modify( row, get_self(), [&]( auto & row_ ) {
                 if ( is_in ) {
@@ -299,9 +302,7 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
                 row_.last_updated = current_time_point();
             });
         }
-
-        ext_quantity = ext_out;
     }
 
-    return ext_quantity;
+    return ext_out;
 }
