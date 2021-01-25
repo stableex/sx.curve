@@ -158,14 +158,15 @@ public:
         eosio::check( pairs.reserve0.quantity.symbol == in.symbol, "Curve.sx: no such reserve in pairs");
 
         // normalize inputs to max precision
-        const int64_t amount_in = in.amount;
-        const int64_t reserve_in = mul_amount(pairs.reserve0.quantity.amount, pairs.reserve0.quantity.symbol.precision(), MAX_PRECISION );
-        const int64_t reserve_out = mul_amount(pairs.reserve1.quantity.amount, pairs.reserve1.quantity.symbol.precision(), MAX_PRECISION );
+        const int64_t amount_in = mul_amount(in.amount, MAX_PRECISION, pairs.reserve0.quantity.symbol.precision() );
+        const int64_t reserve_in = mul_amount(pairs.reserve0.quantity.amount, MAX_PRECISION, pairs.reserve0.quantity.symbol.precision() );
+        const int64_t reserve_out = mul_amount(pairs.reserve1.quantity.amount, MAX_PRECISION, pairs.reserve1.quantity.symbol.precision() );
         const uint64_t amplifier = pairs.amplifier;
         const uint8_t fee = config.trade_fee + config.protocol_fee;
 
         // calculate out
-        const int64_t out = Curve::get_amount_out( amount_in, reserve_in, reserve_out, amplifier, fee );
+        const int64_t out = div_amount( Curve::get_amount_out( amount_in, reserve_in, reserve_out, amplifier, fee ), MAX_PRECISION, pairs.reserve1.quantity.symbol.precision() );
+
         return { out, pairs.reserve1.quantity.symbol };
     }
 
