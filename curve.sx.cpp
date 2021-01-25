@@ -28,10 +28,10 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     // ignore transfers
     if ( to != get_self() || memo == get_self().to_string() || from == "eosio.ram"_n) return;
 
-    // settings
-    sx::curve::settings _settings( get_self(), get_self().value );
-    check( _settings.exists(), "contract is under maintenance");
-    auto settings = _settings.get();
+    // config
+    sx::curve::config _config( get_self(), get_self().value );
+    check( _config.exists(), "contract is under maintenance");
+    auto config = _config.get();
 
     // TEMP - DURING TESTING PERIOD
     check( from.suffix() == "sx"_n || from == "myaccount"_n, "account must be *.sx");
@@ -51,7 +51,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     auto best_path = paths[0];
     extended_asset best_out;
     for (const auto& path: paths) {
-        auto out = apply_trade(ext_in, path, settings.trade_fee);
+        auto out = apply_trade(ext_in, path, config.trade_fee);
         // print("\n   ", path[0]); if(path.size()==2) print("->", path[1]);;
         // print(" => ", out.quantity);
         if(out.quantity.amount > best_out.quantity.amount) {
@@ -66,21 +66,11 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.amount <= best_out.quantity.amount, "return is not enough");
 
     // execute the trade by updating all involved pools
-    best_out = apply_trade(ext_in, best_path, settings.trade_fee, true);
+    best_out = apply_trade(ext_in, best_path, config.trade_fee, true);
 
     // transfer amount to receiver
     // print("\nTransfering ", best_out, " to ", receiver);
     transfer( get_self(), receiver, best_out, "swap" );
-}
-
-int64_t sx::curve::mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
-{
-    return amount * pow(10, precision0 - precision1 );
-}
-
-int64_t sx::curve::div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
-{
-    return amount / pow(10, precision0 - precision1 );
 }
 
 pair<extended_asset, name> sx::curve::parse_memo(string memo){
@@ -137,15 +127,15 @@ symbol_code sx::curve::find_pair_id( const symbol_code symcode_in, const symbol_
 }
 
 [[eosio::action]]
-void sx::curve::setsettings( const std::optional<sx::curve::settings_row> settings )
+void sx::curve::setconfig( const std::optional<sx::curve::config_row> config )
 {
     require_auth( get_self() );
-    sx::curve::settings _settings( get_self(), get_self().value );
+    sx::curve::config _config( get_self(), get_self().value );
 
     // clear table if setting is `null`
-    if ( !settings ) return _settings.remove();
+    if ( !config ) return _config.remove();
 
-    _settings.set( *settings, get_self() );
+    _config.set( *config, get_self() );
 }
 
 [[eosio::action]]
@@ -195,10 +185,10 @@ void sx::curve::reset()
 {
     require_auth( get_self() );
 
-    sx::curve::settings _settings( get_self(), get_self().value );
+    sx::curve::config _config( get_self(), get_self().value );
     sx::curve::pairs _pairs( get_self(), get_self().value );
 
-    _settings.remove();
+    _config.remove();
     clear_table( _pairs );
 }
 

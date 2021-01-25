@@ -27,7 +27,7 @@ public:
     void test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
 
     /**
-     * ## TABLE `settings`
+     * ## TABLE `config`
      *
      * - `{name} status` - contract status ("ok", "paused")
      * - `{uint8_t} trading_fee` - trading fee (pips 1/100 of 1%)
@@ -45,18 +45,18 @@ public:
      * }
      * ```
      */
-    struct [[eosio::table("settings")]] settings_row {
+    struct [[eosio::table("config")]] config_row {
         name                status = "ok"_n;
         uint8_t             trade_fee = 4;
         uint8_t             protocol_fee = 0;
         name                fee_account = "fee.sx"_n;
     };
-    typedef eosio::singleton< "settings"_n, settings_row > settings;
+    typedef eosio::singleton< "config"_n, config_row > config;
 
     /**
      * ## TABLE `pairs`
      *
-     * - `{symbol_code} id` - pair symbol id
+     * - `{uint64_t} id` - pair id
      * - `{extended_asset} reserve0` - reserve0 asset
      * - `{extended_asset} reserve1` - reserve1 asset
      * - `{extended_asset} liquidity` - liquidity asset
@@ -108,7 +108,7 @@ public:
     }
 
     [[eosio::action]]
-    void setsettings( const std::optional<sx::curve::settings_row> settings );
+    void setconfig( const std::optional<sx::curve::config_row> config );
 
     [[eosio::action]]
     void setpair( const symbol_code id, const extended_asset reserve0, const extended_asset reserve1, const uint64_t amplifier );
@@ -143,23 +143,40 @@ public:
      * => 10.1000 USN
      * ```
      */
-    static asset get_amount_out( const asset in, const symbol_code pair_id) {
-
-        sx::curve::settings _config( sx::curve::code, sx::curve::code.value );
-        check( _config.exists() && _config.get().status == "ok"_n, "Curve.sx: contract is under maintenance");
-        auto fee = _config.get().trade_fee + _config.get().protocol_fee;
-
+    static asset get_amount_out( const asset in, const symbol_code pair_id )
+    {
+        sx::curve::config _config( sx::curve::code, sx::curve::code.value );
         sx::curve::pairs _pairs( sx::curve::code, sx::curve::code.value );
-        auto pool = _pairs.get( pair_id.raw(), "Curve.sx: invalid pair id" );
-        if(pool.reserve0.quantity.symbol != in.symbol)
-            std::swap(pool.reserve0, pool.reserve1);
+        check( _config.exists(), "Curve.sx: contract is under maintenance");
 
-        eosio::check( pool.reserve0.quantity.symbol == in.symbol, "Curve.sx: no such reserve in pool");
+        // get configs
+        auto config = _config.get();
+        auto pairs = _pairs.get( pair_id.raw(), "Curve.sx: invalid pair id" );
 
-        asset out {0, pool.reserve1.quantity.symbol};
-        out.amount = Curve::get_amount_out(in.amount, pool.reserve0.quantity.amount, pool.reserve1.quantity.amount, pool.amplifier, fee);
+        // inverse reserves based on input quantity
+        if (pairs.reserve0.quantity.symbol != in.symbol) std::swap(pairs.reserve0, pairs.reserve1);
+        eosio::check( pairs.reserve0.quantity.symbol == in.symbol, "Curve.sx: no such reserve in pairs");
 
-        return out;
+        // normalize inputs to max precision
+        const int64_t amount_in = in.amount;
+        const int64_t reserve_in = mul_amount(pairs.reserve0.quantity.amount, pairs.reserve0.quantity.symbol.precision(), MAX_PRECISION );
+        const int64_t reserve_out = mul_amount(pairs.reserve1.quantity.amount, pairs.reserve1.quantity.symbol.precision(), MAX_PRECISION );
+        const uint64_t amplifier = pairs.amplifier;
+        const uint8_t fee = config.trade_fee + config.protocol_fee;
+
+        // calculate out
+        const int64_t out = Curve::get_amount_out( amount_in, reserve_in, reserve_out, amplifier, fee );
+        return { out, pairs.reserve1.quantity.symbol };
+    }
+
+    static int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
+    {
+        return amount * pow(10, precision0 - precision1 );
+    }
+
+    static int64_t div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
+    {
+        return amount / pow(10, precision0 - precision1 );
     }
 
 private:
@@ -181,13 +198,12 @@ private:
     //calculate out for trade via {path}, finalize it if {finalize}==true
     extended_asset apply_trade( extended_asset ext_quantity, const vector<symbol_code> path, const uint8_t fee, bool finalize = false );
 
-    // normalizing input for tokens with different precision
-    int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 );
-    int64_t div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 );
+    // // normalizing input for tokens with different precision
+    // int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 );
+    // int64_t div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 );
 
     // maintenance
     template <typename T>
     void clear_table( T& table );
-
 };
 }
