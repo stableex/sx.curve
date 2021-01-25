@@ -18,8 +18,7 @@ cleos -v push action curve.sx test "[10000000000, $reserve_out, $reserve_in, $am
 cleos push action curve.sx setsettings '[[4]]' -p curve.sx
 
 # set pair
-cleos -v push action curve.sx setpair '["AB", ["1000.0000 A", "eosio.token"], ["1000.0000 B", "eosio.token"], 100]' -p curve.sx
-cleos -v push action curve.sx setpair '["AC", ["1000.0000 A", "eosio.token"], ["1000.00000000 C", "eosio.token"], 100]' -p curve.sx
+cleos -v push action curve.sx setpair '["AB", ["1000.0000 A", "eosio.token"], ["1000.0000 B", "eosio.token"], 20]' -p curve.sx
 cleos -v push action curve.sx setpair '["BC", ["1000.0000 B", "eosio.token"], ["1000.00000000 C", "eosio.token"], 100]' -p curve.sx
 
 NOCOLOR='\033[0m'

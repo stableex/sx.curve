@@ -1,6 +1,7 @@
 #include <eosio.token/eosio.token.hpp>
 #include <sx.utils/utils.hpp>
 #include <sx.curve/curve.hpp>
+#include <sx.rex/rex.hpp>
 
 #include "curve.sx.hpp"
 
@@ -159,14 +160,13 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     const name contract1 = reserve1.contract;
     const symbol sym0 = reserve0.quantity.symbol;
     const symbol sym1 = reserve1.quantity.symbol;
-    const uint8_t max_precision = max( sym0.precision(), sym1.precision() );
 
     // check reserves
     check( is_account( contract0 ), "reserve0 contract does not exists");
     check( is_account( contract1 ), "reserve1 contract does not exists");
     check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "reserve0 symbol mismatch" );
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
-    check( mul_amount(reserve0.quantity.amount, max_precision, sym0.precision()) == mul_amount(reserve1.quantity.amount, max_precision, sym1.precision()), "reserve0 & reserve1 amount must match");
+    check( mul_amount(reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) == mul_amount(reserve1.quantity.amount, MAX_PRECISION, sym1.precision()), "reserve0 & reserve1 amount must match");
 
     // pairs content
     auto insert = [&]( auto & row ) {
@@ -204,24 +204,6 @@ void sx::curve::clear_table( T& table )
     while ( itr != table.end() ) {
         itr = table.erase( itr );
     }
-}
-
-void sx::curve::issue( const extended_asset value, const string memo )
-{
-    eosio::token::issue_action issue( value.contract, { get_self(), "active"_n });
-    issue.send( get_self(), value.quantity, memo );
-}
-
-void sx::curve::retire( const extended_asset value, const string memo )
-{
-    eosio::token::retire_action retire( value.contract, { get_self(), "active"_n });
-    retire.send( value.quantity, memo );
-}
-
-void sx::curve::transfer( const name from, const name to, const extended_asset value, const string memo )
-{
-    eosio::token::transfer_action transfer( value.contract, { from, "active"_n });
-    transfer.send( from, to, value.quantity, memo );
 }
 
 vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in, symbol_code symcode_memo )
@@ -268,19 +250,16 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
             return {};
         }
 
-        // max precision
-        const uint8_t max_precision = max( sym_in.precision(), reserve_out.quantity.symbol.precision() );
-
         // calculate out
         const int64_t amount_out = Curve::get_amount_out(
-            mul_amount( ext_quantity.quantity.amount, max_precision, ext_quantity.quantity.symbol.precision() ),
-            mul_amount( reserve_in.quantity.amount, max_precision, sym_in.precision() ),
-            mul_amount( reserve_out.quantity.amount, max_precision, sym_out.precision() ),
+            mul_amount( ext_quantity.quantity.amount, MAX_PRECISION, ext_quantity.quantity.symbol.precision() ),
+            mul_amount( reserve_in.quantity.amount, MAX_PRECISION, sym_in.precision() ),
+            mul_amount( reserve_out.quantity.amount, MAX_PRECISION, sym_out.precision() ),
             row.amplifier,
             fee
         );
 
-        const extended_asset ext_out { div_amount( amount_out, max_precision, sym_out.precision() ), reserve_out.get_extended_symbol() };
+        const extended_asset ext_out { div_amount( amount_out, MAX_PRECISION, sym_out.precision() ), reserve_out.get_extended_symbol() };
 
         if (finalize) {
             // modify reserves
@@ -307,4 +286,22 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
     }
 
     return ext_quantity;
+}
+
+void sx::curve::issue( const extended_asset value, const string memo )
+{
+    eosio::token::issue_action issue( value.contract, { get_self(), "active"_n });
+    issue.send( get_self(), value.quantity, memo );
+}
+
+void sx::curve::retire( const extended_asset value, const string memo )
+{
+    eosio::token::retire_action retire( value.contract, { get_self(), "active"_n });
+    retire.send( value.quantity, memo );
+}
+
+void sx::curve::transfer( const name from, const name to, const extended_asset value, const string memo )
+{
+    eosio::token::transfer_action transfer( value.contract, { from, "active"_n });
+    transfer.send( from, to, value.quantity, memo );
 }

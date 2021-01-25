@@ -10,6 +10,8 @@
 using namespace eosio;
 using namespace std;
 
+static constexpr uint8_t MAX_PRECISION = 8;
+
 namespace sx {
 class [[eosio::contract("curve.sx")]] curve : public eosio::contract {
 public:
