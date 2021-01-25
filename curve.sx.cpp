@@ -101,6 +101,7 @@ pair<extended_asset, name> sx::curve::parse_memo(string memo){
     return {};
 }
 
+// find pair_id based on symbol_code of incoming tokens and memo
 symbol_code sx::curve::find_pair_id( const symbol_code symcode_in, const symbol_code symcode_memo )
 {
     sx::curve::pairs _pairs( get_self(), get_self().value );
@@ -201,6 +202,7 @@ void sx::curve::clear_table( T& table )
     }
 }
 
+// find all possible paths to trade symcode_in to memo symcode, include 2-hops
 vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in, symbol_code symcode_memo )
 {
     check( symcode_in != symcode_memo, "memo symbol must not match quantity symbol");
@@ -228,6 +230,7 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in,
     return paths;
 }
 
+// calculate out for trade via {path}, finalize it if {finalize}==true
 extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector<symbol_code> path, const uint8_t fee, const bool finalize /*=false*/ )
 {
     sx::curve::pairs _pairs( get_self(), get_self().value );
@@ -237,9 +240,7 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
         const auto& row = _pairs.get( pair_id.raw(), "pair id does not exist");
         const bool is_in = row.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
         const extended_asset reserve_in = is_in ? row.reserve0 : row.reserve1;
-        const extended_asset reserve_out = is_in ? row.reserve1 : row.reserve0;
         const symbol sym_in = reserve_in.quantity.symbol;
-        const symbol sym_out = reserve_out.quantity.symbol;
 
         if (reserve_in.contract != ext_quantity.contract || sym_in != ext_quantity.quantity.symbol) {
             check(!finalize, "incoming currency/reserves contract mismatch");
@@ -260,7 +261,7 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
                     row_.reserve1.quantity += ext_quantity.quantity;
                 }
                 // calculate last price
-                const double price = static_cast<double>(ext_quantity.quantity.amount) / ext_out.quantity.amount;
+                const double price = calculate_price( ext_quantity.quantity, ext_out.quantity );
                 row_.price0_last = is_in ? 1 / price : price;
                 row_.price1_last = is_in ? price : 1 / price;
 
@@ -274,6 +275,12 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
     }
 
     return ext_quantity;
+}
+
+double sx::curve::calculate_price( const asset value0, const asset value1 ) {
+    const int64_t amount0 = mul_amount( value0.amount, MAX_PRECISION, value0.symbol.precision() );
+    const int64_t amount1 = mul_amount( value1.amount, MAX_PRECISION, value1.symbol.precision() );
+    return static_cast<double>(amount0) / amount1;
 }
 
 void sx::curve::create( const extended_symbol value )
