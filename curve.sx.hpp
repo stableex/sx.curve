@@ -11,6 +11,9 @@ using namespace eosio;
 using namespace std;
 
 static constexpr uint8_t MAX_PRECISION = 8;
+static constexpr int64_t asset_mask{(1LL << 62) - 1};
+static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
+static constexpr name TOKEN_CONTRACT = "token.sx"_n;
 
 namespace sx {
 class [[eosio::contract("curve.sx")]] curve : public eosio::contract {
@@ -23,18 +26,27 @@ public:
     /**
      * ## TABLE `settings`
      *
-     * - `{uint8_t} fee` - trading fee (pips 1/100 of 1%)
+     * - `{name} status` - contract status ("ok", "paused")
+     * - `{uint8_t} trading_fee` - trading fee (pips 1/100 of 1%)
+     * - `{uint8_t} protocol_fee` - protocol fee (pips 1/100 of 1%)
+     * - `{name} fee_account` - transfer protocol fees to account
      *
      * ### example
      *
      * ```json
      * {
-     *   "fee": 4
+     *   "status": "ok",
+     *   "trade_fee": 4,
+     *   "protocol_fee": 0,
+     *   "fee_account": "fee.sx"
      * }
      * ```
      */
     struct [[eosio::table("settings")]] settings_row {
-        uint8_t             fee = 4;
+        name                status = "ok"_n;
+        uint8_t             trade_fee = 4;
+        uint8_t             protocol_fee = 0;
+        name                fee_account = "fee.sx"_n;
     };
     typedef eosio::singleton< "settings"_n, settings_row > settings;
 
@@ -108,6 +120,8 @@ public:
     void on_transfer( const name from, const name to, const asset quantity, const std::string memo );
 
 private:
+    // token helpers
+    void create( const extended_symbol value );
     void transfer( const name from, const name to, const extended_asset value, const string memo );
     void retire( const extended_asset value, const string memo );
     void issue( const extended_asset value, const string memo );
