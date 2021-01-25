@@ -3,7 +3,7 @@
 #include <eosio/eosio.hpp>
 #include <eosio/asset.hpp>
 #include <eosio/singleton.hpp>
-
+#include <sx.curve/curve.hpp>
 
 #include <optional>
 
@@ -16,6 +16,9 @@ namespace sx {
 class [[eosio::contract("curve.sx")]] curve : public eosio::contract {
 public:
     using contract::contract;
+
+    static constexpr name id = "curve.sx"_n;
+    static constexpr name code = "curve.sx"_n;
 
     [[eosio::action]]
     void test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
@@ -131,5 +134,52 @@ private:
     // maintenance
     template <typename T>
     void clear_table( T& table );
+
+public:
+
+
+    /**
+     * ## STATIC `get_amount_out`
+     *
+     * Calculate return for converting {in} amount via {pair_id} pool
+     *
+     * ### params
+     *
+     * - `{asset} in` - input token quantity
+     * - `{symbol_code} pair_id` - pair id
+     *
+     * ### returns
+     *
+     * - `{asset}` - calculated return
+     *
+     * ### example
+     *
+     * ```c++
+     * const asset in = asset {10'0000, {"USDT", 4}};
+     * const symbol_code pair_id = symbol_code {"SXA"};
+     *
+     * const asset out  = sx::curve::get_amount_out( in, pair_id );
+     * => 10.1000 USN
+     * ```
+     */
+    static asset get_amount_out( const asset in, const symbol_code pair_id) {
+
+        sx::curve::settings _config( sx::curve::code, sx::curve::code.value );
+        check( _config.exists(), "Curve.sx: contract is under maintenance");
+        auto fee = _config.get().fee;
+
+        sx::curve::pairs _pairs( sx::curve::code, sx::curve::code.value );
+        auto pool = _pairs.get( pair_id.raw(), "Curve.sx: invalid pair id" );
+        if(pool.reserve0.quantity.symbol != in.symbol)
+            std::swap(pool.reserve0, pool.reserve1);
+
+        eosio::check( pool.reserve0.quantity.symbol == in.symbol, "Curve.sx: no such reserve in pool");
+
+        asset out {0, pool.reserve1.quantity.symbol};
+        out.amount = Curve::get_amount_out(in.amount, pool.reserve0.quantity.amount, pool.reserve1.quantity.amount, pool.amplifier, fee);
+
+        return out;
+    }
+
 };
 }

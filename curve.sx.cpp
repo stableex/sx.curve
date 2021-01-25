@@ -1,6 +1,5 @@
 #include <eosio.token/eosio.token.hpp>
 #include <sx.utils/utils.hpp>
-#include <sx.curve/curve.hpp>
 #include <sx.rex/rex.hpp>
 
 #include "curve.sx.hpp"
