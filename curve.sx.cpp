@@ -240,21 +240,14 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
         const extended_asset reserve_out = is_in ? row.reserve1 : row.reserve0;
         const symbol sym_in = reserve_in.quantity.symbol;
         const symbol sym_out = reserve_out.quantity.symbol;
+
         if (reserve_in.contract != ext_quantity.contract || sym_in != ext_quantity.quantity.symbol) {
             check(!finalize, "incoming currency/reserves contract mismatch");
             return {};
         }
 
         // calculate out
-        const int64_t amount_out = Curve::get_amount_out(
-            mul_amount( ext_quantity.quantity.amount, MAX_PRECISION, ext_quantity.quantity.symbol.precision() ),
-            mul_amount( reserve_in.quantity.amount, MAX_PRECISION, sym_in.precision() ),
-            mul_amount( reserve_out.quantity.amount, MAX_PRECISION, sym_out.precision() ),
-            row.amplifier,
-            fee
-        );
-
-        const extended_asset ext_out { div_amount( amount_out, MAX_PRECISION, sym_out.precision() ), reserve_out.get_extended_symbol() };
+        const extended_asset ext_out = get_amount_out( ext_quantity, pair_id );
 
         if (finalize) {
             // modify reserves
