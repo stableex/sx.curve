@@ -1,6 +1,7 @@
 #include <eosio.token/eosio.token.hpp>
 #include <sx.utils/utils.hpp>
 #include <sx.rex/rex.hpp>
+#include <sx.stats/stats.sx .hpp>
 
 #include "curve.sx.hpp"
 
@@ -20,8 +21,6 @@ void sx::curve::test( const uint64_t amount, const uint64_t reserve_in, const ui
 [[eosio::on_notify("*::transfer")]]
 void sx::curve::on_transfer( const name from, const name to, const asset quantity, const string memo )
 {
-    // print("Received ", quantity, " from ", from, " with memo \"", memo, "\"");
-
     // authenticate incoming `from` account
     require_auth( from );
 
@@ -34,7 +33,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     auto config = _config.get();
 
     // TEMP - DURING TESTING PERIOD
-    check( from.suffix() == "sx"_n || from == "myaccount"_n, "account must be *.sx");
+    check( from.suffix() == "sx"_n || from == "myaccount"_n, "account must be *.sx during testing period");
 
     // user input params
     const name contract = get_first_receiver();
@@ -51,9 +50,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     auto best_path = paths[0];
     extended_asset best_out;
     for (const auto& path: paths) {
-        auto out = apply_trade(ext_in, path, config.trade_fee);
-        // print("\n   ", path[0]); if(path.size()==2) print("->", path[1]);;
-        // print(" => ", out.quantity);
+        auto out = apply_trade(ext_in, path);
         if(out.quantity.amount > best_out.quantity.amount) {
             best_path = path;
             best_out = out;
@@ -66,11 +63,13 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.amount <= best_out.quantity.amount, "return is not enough");
 
     // execute the trade by updating all involved pools
-    best_out = apply_trade(ext_in, best_path, config.trade_fee, true);
+    best_out = apply_trade(ext_in, best_path, true);
 
     // transfer amount to receiver
-    // print("\nTransfering ", best_out, " to ", receiver);
     transfer( get_self(), receiver, best_out, "swap" );
+
+    // sx::stats::swaplog_action swaplog( "stats.sx"_n, { get_self(), "active"_n });
+    // swaplog.send( get_self(), from, quantity, best_out.quantity, config.trade_fee );
 }
 
 pair<extended_asset, name> sx::curve::parse_memo(string memo){
@@ -228,7 +227,7 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in,
     return paths;
 }
 
-extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector<symbol_code> path, const uint8_t fee, const bool finalize /*=false*/ )
+extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector<symbol_code> path, const bool finalize /*=false*/ )
 {
     sx::curve::pairs _pairs( get_self(), get_self().value );
     extended_asset ext_quantity = ext_in;
