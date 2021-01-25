@@ -51,7 +51,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     auto best_path = paths[0];
     extended_asset best_out;
     for (const auto& path: paths) {
-        auto out = apply_trade(ext_in, path, settings.fee);
+        auto out = apply_trade(ext_in, path, settings.trade_fee);
         // print("\n   ", path[0]); if(path.size()==2) print("->", path[1]);;
         // print(" => ", out.quantity);
         if(out.quantity.amount > best_out.quantity.amount) {
@@ -66,7 +66,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.amount <= best_out.quantity.amount, "return is not enough");
 
     // execute the trade by updating all involved pools
-    best_out = apply_trade(ext_in, best_path, settings.fee, true);
+    best_out = apply_trade(ext_in, best_path, settings.trade_fee, true);
 
     // transfer amount to receiver
     // print("\nTransfering ", best_out, " to ", receiver);
@@ -171,12 +171,15 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
     check( amount0 == amount1, "reserve0 & reserve1 normalized amount must match");
 
+    // create liquidity token
+    const extended_asset liquidity = { asset{ amount0 + amount1, { id, MAX_PRECISION }}, get_self() };
+
     // pairs content
     auto insert = [&]( auto & row ) {
         row.id = id;
         row.reserve0 = reserve0;
         row.reserve1 = reserve1;
-        row.liquidity = { asset{ amount0 + amount1, { id, 8 }}, get_self() };
+        row.liquidity = liquidity;
         row.amplifier = amplifier;
         row.last_updated = current_time_point();
     };
@@ -192,8 +195,8 @@ void sx::curve::reset()
 {
     require_auth( get_self() );
 
-    sx::curve::pairs _pairs( get_self(), get_self().value );
     sx::curve::settings _settings( get_self(), get_self().value );
+    sx::curve::pairs _pairs( get_self(), get_self().value );
 
     _settings.remove();
     clear_table( _pairs );
@@ -288,6 +291,12 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
     }
 
     return ext_quantity;
+}
+
+void sx::curve::create( const extended_symbol value )
+{
+    eosio::token::create_action create( value.get_contract(), { value.get_contract(), "active"_n });
+    create.send( get_self(), asset{ asset_max, value.get_symbol() } );
 }
 
 void sx::curve::issue( const extended_asset value, const string memo )

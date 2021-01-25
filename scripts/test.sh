@@ -15,7 +15,7 @@ cleos -v push action curve.sx test "[10000000000, $reserve_in, $reserve_out, $am
 cleos -v push action curve.sx test "[10000000000, $reserve_out, $reserve_in, $amplifier, $fee]" -p curve.sx
 
 # settings
-cleos push action curve.sx setsettings '[[4]]' -p curve.sx
+cleos push action curve.sx setsettings '[["ok", 4, 0, "fee.sx"]]' -p curve.sx
 
 # set pair
 cleos -v push action curve.sx setpair '["AB", ["1000.0000 A", "eosio.token"], ["1000.0000 B", "eosio.token"], 20]' -p curve.sx
