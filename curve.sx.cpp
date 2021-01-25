@@ -161,19 +161,23 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     const symbol sym0 = reserve0.quantity.symbol;
     const symbol sym1 = reserve1.quantity.symbol;
 
+    // normalize reserves
+    const int64_t amount0 = mul_amount(reserve0.quantity.amount, MAX_PRECISION, sym0.precision());
+    const int64_t amount1 = mul_amount(reserve1.quantity.amount, MAX_PRECISION, sym1.precision());
+
     // check reserves
     check( is_account( contract0 ), "reserve0 contract does not exists");
     check( is_account( contract1 ), "reserve1 contract does not exists");
     check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "reserve0 symbol mismatch" );
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
-    check( mul_amount(reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) == mul_amount(reserve1.quantity.amount, MAX_PRECISION, sym1.precision()), "reserve0 & reserve1 amount must match");
+    check( amount0 == amount1, "reserve0 & reserve1 normalized amount must match");
 
     // pairs content
     auto insert = [&]( auto & row ) {
         row.id = id;
         row.reserve0 = reserve0;
         row.reserve1 = reserve1;
-        row.liquidity = {asset{0, { id, 4 }}, get_self() };
+        row.liquidity = { asset{ amount0 + amount1, { id, 8 }}, get_self() };
         row.amplifier = amplifier;
         row.last_updated = current_time_point();
     };
@@ -182,7 +186,6 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     auto itr = _pairs.find( id.raw() );
     if ( itr == _pairs.end() ) _pairs.emplace( get_self(), insert );
     else check( false, "`setpair` cannot modify, must first `delete` pair");
-    // _pairs.modify( itr, get_self(), insert );
 }
 
 [[eosio::action]]
