@@ -54,6 +54,34 @@ public:
     typedef eosio::singleton< "config"_n, config_row > config;
 
     /**
+     * ## TABLE `orders`
+     *
+     * *scope*: `pair_id` (symbol_code)
+     *
+     * - `{name} owner` - owner account
+     * - `{asset} quantity0` - quantity asset
+     * - `{asset} quantity1` - quantity asset
+     *
+     * ### example
+     *
+     * ```json
+     * {
+     *   "owner": "myaccount",
+     *   "quantity0": "1000.0000 A",
+     *   "quantity1": "1000.0000 B"
+     * }
+     * ```
+     */
+    struct [[eosio::table("orders")]] orders_row {
+        name            owner;
+        asset           quantity0;
+        asset           quantity1;
+
+        uint64_t primary_key() const { return owner.value; }
+    };
+    typedef eosio::multi_index< "orders"_n, orders_row> orders;
+
+    /**
      * ## TABLE `pairs`
      *
      * - `{symbol_code} id` - pair id
@@ -140,10 +168,10 @@ public:
      * const symbol_code pair_id = symbol_code {"SXA"};
      *
      * const asset out  = sx::curve::get_amount_out( in, pair_id );
-     * => "10.1000 B@eosio.token"
+     * => 10.1000 B
      * ```
      */
-    static extended_asset get_amount_out( const extended_asset in, const symbol_code pair_id )
+    static asset get_amount_out( const asset in, const symbol_code pair_id )
     {
         sx::curve::config _config( sx::curve::code, sx::curve::code.value );
         sx::curve::pairs _pairs( sx::curve::code, sx::curve::code.value );
@@ -154,14 +182,13 @@ public:
         auto pairs = _pairs.get( pair_id.raw(), "Curve.sx: invalid pair id" );
 
         // inverse reserves based on input quantity
-        if (pairs.reserve0.quantity.symbol != in.quantity.symbol) std::swap(pairs.reserve0, pairs.reserve1);
-        eosio::check( pairs.reserve0.quantity.symbol == in.quantity.symbol, "Curve.sx: no such reserve in pairs");
-        eosio::check( pairs.reserve0.contract == in.contract, "Curve.sx: contract mismatch in asset");
+        if (pairs.reserve0.quantity.symbol != in.symbol) std::swap(pairs.reserve0, pairs.reserve1);
+        eosio::check( pairs.reserve0.quantity.symbol == in.symbol, "Curve.sx: no such reserve in pairs");
 
         // normalize inputs to max precision
         const uint8_t precision_in = pairs.reserve0.quantity.symbol.precision();
         const uint8_t precision_out = pairs.reserve1.quantity.symbol.precision();
-        const int64_t amount_in = mul_amount( in.quantity.amount, MAX_PRECISION, precision_in );
+        const int64_t amount_in = mul_amount( in.amount, MAX_PRECISION, precision_in );
         const int64_t reserve_in = mul_amount( pairs.reserve0.quantity.amount, MAX_PRECISION, precision_in );
         const int64_t reserve_out = mul_amount( pairs.reserve1.quantity.amount, MAX_PRECISION, precision_out );
         const uint64_t amplifier = pairs.amplifier;
@@ -170,7 +197,7 @@ public:
         // calculate out
         const int64_t out = div_amount( Curve::get_amount_out( amount_in, reserve_in, reserve_out, amplifier, fee ), MAX_PRECISION, precision_out );
 
-        return { out, pairs.reserve1.get_extended_symbol() };
+        return { out, pairs.reserve1.quantity.symbol };
     }
 
     static int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )

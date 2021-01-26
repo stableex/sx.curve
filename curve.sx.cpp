@@ -238,15 +238,15 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
         const auto& row = _pairs.get( pair_id.raw(), "pair id does not exist");
         const bool is_in = row.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
         const extended_asset reserve_in = is_in ? row.reserve0 : row.reserve1;
-        const symbol sym_in = reserve_in.quantity.symbol;
+        const extended_asset reserve_out = is_in ? row.reserve1 : row.reserve0;
 
-        if (reserve_in.contract != ext_quantity.contract || sym_in != ext_quantity.quantity.symbol) {
+        if (reserve_in.contract != ext_quantity.contract || reserve_in.quantity.symbol != ext_quantity.quantity.symbol) {
             check(!finalize, "incoming currency/reserves contract mismatch");
             return {};
         }
 
         // calculate out
-        const extended_asset ext_out = get_amount_out( ext_quantity, pair_id );
+        const extended_asset ext_out = { get_amount_out( ext_quantity.quantity, pair_id ), reserve_out.contract };
 
         if (finalize) {
             // modify reserves
