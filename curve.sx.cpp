@@ -197,15 +197,9 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( const symbol_code symco
 
     // find all possible second hops
     for(const auto& [id, sc_in] : hop_one) {
-        for (const auto& row : _pairs) {
-            symbol_code sc1 = row.reserve0.quantity.symbol.code();
-            symbol_code sc2 = row.reserve1.quantity.symbol.code();
-
-            if (sc1 != sc_in) std::swap(sc1, sc2);
-            if (sc1 == symcode_out) paths.push_back({id, row.id});
-        }
+        auto id2 = find_pair_id(sc_in, symcode_out);
+        if(id2.is_valid()) paths.push_back({id, id2});
     }
-
     return paths;
 }
 
@@ -215,8 +209,8 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
     extended_asset ext_quantity = ext_in;
     check( path.size(), "exchange path is empty");
     for (auto pair_id : path) {
-        const bool is_in = pairs.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
         const auto& pairs = _pairs.get( pair_id.raw(), "pair id does not exist");
+        const bool is_in = pairs.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
         const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
         const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
 
