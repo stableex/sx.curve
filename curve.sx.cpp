@@ -59,27 +59,25 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     transfer( get_self(), receiver, best_out, "swap" );
 }
 
-pair<extended_asset, name> sx::curve::parse_memo(string memo){
+pair<extended_asset, name> sx::curve::parse_memo(const string memo){
 
     name receiver;
-    auto arr = sx::utils::split(memo, ",");
+    auto rmemo = sx::utils::split(memo, ",");
 
-    check(arr.size() < 3 && arr.size() > 0, "invalid memo format");
-    if ( arr.size() == 2 ) {
-        receiver = sx::utils::parse_name(arr[1]);
+    check(rmemo.size() < 3 && rmemo.size() > 0, "invalid memo format");
+    if ( rmemo.size() == 2 ) {
+        receiver = sx::utils::parse_name(rmemo[1]);
         check(receiver.value, "invalid receiver name in memo");
         check(is_account(receiver), "receiver account does not exist");
     }
 
-    memo = arr[0];
-
-    auto sym_code = sx::utils::parse_symbol_code(memo);
+    auto sym_code = sx::utils::parse_symbol_code(rmemo[0]);
     if (sym_code.is_valid()) return { extended_asset{ asset{0, symbol{sym_code, 0} }, ""_n}, receiver };
 
-    auto quantity = sx::utils::parse_asset(memo);
+    auto quantity = sx::utils::parse_asset(rmemo[0]);
     if (quantity.is_valid()) return { extended_asset{quantity, ""_n}, receiver };
 
-    auto ext_out = sx::utils::parse_extended_asset(memo);
+    auto ext_out = sx::utils::parse_extended_asset(rmemo[0]);
     if ( ext_out.contract.value ) check( is_account( ext_out.contract ), "extended asset contract account does not exist");
     if ( ext_out.quantity.is_valid()) return { ext_out, receiver };
 

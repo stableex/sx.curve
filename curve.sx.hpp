@@ -243,7 +243,7 @@ private:
     void issue( const extended_asset value, const string memo );
 
     // utils
-    pair<extended_asset, name> parse_memo(string memo);
+    pair<extended_asset, name> parse_memo(const string memo);
     double calculate_price( const asset value0, const asset value1 );
     double calculate_virtual_price( const asset value0, const asset value1, const asset supply );
 
@@ -254,7 +254,7 @@ private:
     vector<vector<symbol_code>> find_trade_paths( const symbol_code symcode_in, const symbol_code symcode_memo );
 
     // calculate out for trade via {path}, finalize it if {finalize}==true
-    extended_asset apply_trade( extended_asset ext_quantity, const vector<symbol_code> path, bool finalize = false );
+    extended_asset apply_trade( const extended_asset ext_in, const vector<symbol_code> path, bool finalize = false );
 
     // maintenance
     template <typename T>
