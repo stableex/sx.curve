@@ -8,6 +8,7 @@ using namespace eosio;
 
 
 namespace Curve {
+    const int MAX_ITERATIONS = 10;
     /**
      * ## STATIC `get_amount_out`
      *
@@ -21,7 +22,7 @@ namespace Curve {
      * - `{uint64_t} reserve_in` - reserve input
      * - `{uint64_t} reserve_out` - reserve output
      * - `{uint64_t} amplifier` - amplifier
-     * - `{uint8_t} [fee=4]` - (optional) trade fee (pips 1/100 of 1%)
+     * - `{uint8_t} fee` - trade fee (pips 1/100 of 1%)
      *
      * ### example
      *
@@ -38,9 +39,7 @@ namespace Curve {
      * // => 100110
      * ```
      */
-
-    const int _max_iterations = 10;
-    static uint64_t get_amount_out( const uint64_t amount_in, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint8_t fee = 4 )
+    static uint64_t get_amount_out( const uint64_t amount_in, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint8_t fee )
     {
         eosio::check(amount_in > 0, "SX.Curve: INSUFFICIENT_INPUT_AMOUNT");
         eosio::check(amplifier > 0, "SX.Curve: WRONG_AMPLIFIER");
@@ -51,7 +50,7 @@ namespace Curve {
         // A * sum * n^n + D = A * D * n^n + D^(n+1) / (n^n * prod), where n==2
         const uint64_t sum = reserve_in + reserve_out;
         uint128_t D = sum, D_prev = 0;
-        int i = _max_iterations;
+        int i = MAX_ITERATIONS;
         while ( D != D_prev && i--) {
             uint128_t prod1 = D * D / (reserve_in * 2) * D / (reserve_out * 2);
             D_prev = D;
@@ -64,7 +63,7 @@ namespace Curve {
         const int64_t b = (int64_t) ((reserve_in + amount_in) + (D / (amplifier * 2))) - (int64_t) D;
         const uint128_t c = D * D / ((reserve_in + amount_in) * 2) * D / (amplifier * 4);
         uint128_t x = D, x_prev = 0;
-        i = _max_iterations;
+        i = MAX_ITERATIONS;
         while ( x != x_prev && i--) {
             x_prev = x;
             x = (x * x + c) / (2 * x + b);

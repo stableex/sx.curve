@@ -1,19 +1,9 @@
 #include <eosio.token/eosio.token.hpp>
 #include <sx.utils/utils.hpp>
 #include <sx.rex/rex.hpp>
-#include <sx.stats/stats.sx.hpp>
 
 #include "curve.sx.hpp"
-
-using namespace std;
-
-[[eosio::action]]
-void sx::curve::test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee )
-{
-    print ("curve::get_amount_out(",amount,"): ", Curve::get_amount_out( amount, reserve_in, reserve_out, amplifier, fee ), "\n");
-
-    check(false, "see print");
-}
+#include "src/maintenance.cpp"
 
 /**
  * Notify contract when any token transfer notifiers relay contract
@@ -177,27 +167,6 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     else check( false, "`setpair` cannot modify, must first `delete` pair");
 }
 
-[[eosio::action]]
-void sx::curve::reset()
-{
-    require_auth( get_self() );
-
-    sx::curve::config _config( get_self(), get_self().value );
-    sx::curve::pairs _pairs( get_self(), get_self().value );
-
-    _config.remove();
-    clear_table( _pairs );
-}
-
-template <typename T>
-void sx::curve::clear_table( T& table )
-{
-    auto itr = table.begin();
-    while ( itr != table.end() ) {
-        itr = table.erase( itr );
-    }
-}
-
 // find all possible paths to trade symcode_in to memo symcode, include 2-hops
 vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in, symbol_code symcode_memo )
 {
@@ -232,10 +201,10 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
     extended_asset ext_quantity = ext_in;
     check( path.size(), "path is empty");
     for (auto pair_id : path) {
-        const auto& row = _pairs.get( pair_id.raw(), "pair id does not exist");
-        const bool is_in = row.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
-        const extended_asset reserve_in = is_in ? row.reserve0 : row.reserve1;
-        const extended_asset reserve_out = is_in ? row.reserve1 : row.reserve0;
+        const auto& pairs = _pairs.get( pair_id.raw(), "pair id does not exist");
+        const bool is_in = pairs.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
+        const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
+        const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
 
         if (reserve_in.get_extended_symbol() != ext_quantity.get_extended_symbol()) {
             check(!finalize, "incoming currency/reserves contract mismatch");
@@ -247,23 +216,24 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
 
         if (finalize) {
             // modify reserves
-            _pairs.modify( row, get_self(), [&]( auto & row_ ) {
+            _pairs.modify( pairs, get_self(), [&]( auto & row ) {
                 if ( is_in ) {
-                    row_.reserve0.quantity += ext_quantity.quantity;
-                    row_.reserve1.quantity -= ext_out.quantity;
+                    row.reserve0.quantity += ext_quantity.quantity;
+                    row.reserve1.quantity -= ext_out.quantity;
                 } else {
-                    row_.reserve0.quantity -= ext_out.quantity;
-                    row_.reserve1.quantity += ext_quantity.quantity;
+                    row.reserve0.quantity -= ext_out.quantity;
+                    row.reserve1.quantity += ext_quantity.quantity;
                 }
                 // calculate last price
                 const double price = calculate_price( ext_quantity.quantity, ext_out.quantity );
-                row_.price0_last = is_in ? 1 / price : price;
-                row_.price1_last = is_in ? price : 1 / price;
+                row.virtual_price = calculate_virtual_price( row.reserve0.quantity, row.reserve1.quantity, row.liquidity.quantity );
+                row.price0_last = is_in ? 1 / price : price;
+                row.price1_last = is_in ? price : 1 / price;
 
                 // calculate incoming culmative trading volume
-                row_.volume0 += is_in ? ext_quantity.quantity.amount : 0;
-                row_.volume1 += is_in ? 0 : ext_quantity.quantity.amount;
-                row_.last_updated = current_time_point();
+                row.volume0 += is_in ? ext_quantity.quantity : asset{ 0, ext_quantity.quantity.symbol };
+                row.volume1 += is_in ? asset{ 0, ext_quantity.quantity.symbol } : ext_quantity.quantity;
+                row.last_updated = current_time_point();
             });
         }
         ext_quantity = ext_out;
@@ -272,7 +242,16 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
     return ext_quantity;
 }
 
-double sx::curve::calculate_price( const asset value0, const asset value1 ) {
+double sx::curve::calculate_virtual_price( const asset value0, const asset value1, const asset supply )
+{
+    const int64_t amount0 = mul_amount( value0.amount, MAX_PRECISION, value0.symbol.precision() );
+    const int64_t amount1 = mul_amount( value1.amount, MAX_PRECISION, value1.symbol.precision() );
+    const int64_t amount2 = mul_amount( supply.amount, MAX_PRECISION, supply.symbol.precision() );
+    return static_cast<double>( amount0 + amount1 ) / amount2;
+}
+
+double sx::curve::calculate_price( const asset value0, const asset value1 )
+{
     const int64_t amount0 = mul_amount( value0.amount, MAX_PRECISION, value0.symbol.precision() );
     const int64_t amount1 = mul_amount( value1.amount, MAX_PRECISION, value1.symbol.precision() );
     return static_cast<double>(amount0) / amount1;

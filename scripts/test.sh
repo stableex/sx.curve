@@ -25,20 +25,6 @@ NOCOLOR='\033[0m'
 RED='\033[0;31m'
 LIGHTGREEN='\033[1;32m'
 
-# swap must pass
-printf "\nTransactions below must ${LIGHTGREEN}PASS${NOCOLOR}\n\n"
-cleos transfer myaccount curve.sx "100.0000 A" "AB"
-cleos transfer myaccount curve.sx "100.0000 B" "AB"
-cleos transfer myaccount curve.sx "100.0000 A" "B"
-cleos transfer myaccount curve.sx "100.0000 B" "A"
-cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A"
-cleos transfer myaccount curve.sx "100.0000 A" "90.0000 B@eosio.token"
-cleos transfer myaccount curve.sx "100.0000 A" "90.00000000 C@eosio.token"
-cleos transfer myaccount curve.sx "100.00000000 C" "90.0000 A"
-cleos transfer myaccount curve.sx "100.0000 C" "A,myaccount"
-cleos transfer myaccount curve.sx "100.0000 B" "C"
-cleos transfer myaccount curve.sx "100.0000 A" "C"
-
 # swap must fail
 printf "\nTransactions below must ${RED}FAIL${NOCOLOR}\n\n"
 cleos transfer myaccount curve.sx "100.0000 A" ""
@@ -54,3 +40,17 @@ cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A, myaccount"
 cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A,myaccount,curve.sx"
 cleos transfer myaccount curve.sx "100.0000 A" "AC,curve.sx"
 cleos transfer myaccount curve.sx "100.0000 A" "AC,nonexistuser"
+
+# swap must pass
+printf "\nTransactions below must ${LIGHTGREEN}PASS${NOCOLOR}\n\n"
+cleos transfer myaccount curve.sx "100.0000 A" "AB"
+cleos transfer myaccount curve.sx "100.0000 B" "AB"
+cleos transfer myaccount curve.sx "100.0000 A" "B"
+cleos transfer myaccount curve.sx "100.0000 B" "A"
+cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A"
+cleos transfer myaccount curve.sx "100.0000 A" "90.0000 B@eosio.token"
+cleos transfer myaccount curve.sx "100.0000 A" "90.00000000 C@eosio.token"
+cleos transfer myaccount curve.sx "100.00000000 C" "90.0000 A"
+cleos transfer myaccount curve.sx "100.0000 C" "A,myaccount"
+cleos transfer myaccount curve.sx "100.0000 B" "C"
+cleos transfer myaccount curve.sx "100.0000 A" "C"

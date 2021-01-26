@@ -23,9 +23,6 @@ public:
     static constexpr name id = "curve.sx"_n;
     static constexpr name code = "curve.sx"_n;
 
-    [[eosio::action]]
-    void test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
-
     /**
      * ## TABLE `config`
      *
@@ -102,12 +99,13 @@ public:
      *   "id": "AB",
      *   "reserve0": {"quantity": "1000.0000 A", "contract": "eosio.token"},
      *   "reserve1": {"quantity": "1000.0000 B", "contract": "eosio.token"},
-     *   "liquidity": {"quantity": "20000000.0000 AB", "contract": "curve.sx"},
+     *   "liquidity": {"quantity": "2000.00000000 AB", "contract": "curve.sx"},
      *   "amplifier": 450,
+     *   "virtual_price": 1.0,
      *   "price0_last": 1.0,
      *   "price1_last": 1.0,
-     *   "volume0": 1000000,
-     *   "volume1": 1000000,
+     *   "volume0": "100.0000 A",
+     *   "volume1": "100.0000 B",
      *   "last_updated": "2020-11-23T00:00:00"
      * }
      * ```
@@ -118,10 +116,11 @@ public:
         extended_asset      reserve1;
         extended_asset      liquidity;
         uint64_t            amplifier;
+        double              virtual_price;
         double              price0_last;
         double              price1_last;
-        uint64_t            volume0;
-        uint64_t            volume1;
+        asset               volume0;
+        asset               volume1;
         time_point_sec      last_updated;
 
         uint64_t primary_key() const { return id.raw(); }
@@ -135,17 +134,43 @@ public:
         return ((uint128_t) symcode0.raw()) << 64 | symcode1.raw();
     }
 
+    struct [[eosio::table("backup")]] backup_row {
+        symbol_code         id;
+        extended_asset      reserve0;
+        extended_asset      reserve1;
+        extended_asset      liquidity;
+        uint64_t            amplifier;
+        double              price0_last;
+        double              price1_last;
+        uint64_t            volume0;
+        uint64_t            volume1;
+        time_point_sec      last_updated;
+
+        uint64_t primary_key() const { return id.raw(); }
+    };
+    typedef eosio::multi_index< "backup"_n, backup_row> backup_table;
+
     [[eosio::action]]
     void setconfig( const std::optional<sx::curve::config_row> config );
 
     [[eosio::action]]
     void setpair( const symbol_code id, const extended_asset reserve0, const extended_asset reserve1, const uint64_t amplifier );
 
+    [[eosio::on_notify("*::transfer")]]
+    void on_transfer( const name from, const name to, const asset quantity, const std::string memo );
+
+    // MAINTENANCE (TESTING ONLY)
     [[eosio::action]]
     void reset();
 
-    [[eosio::on_notify("*::transfer")]]
-    void on_transfer( const name from, const name to, const asset quantity, const std::string memo );
+    [[eosio::action]]
+    void backup();
+
+    [[eosio::action]]
+    void copy();
+
+    [[eosio::action]]
+    void test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
 
     /**
      * ## STATIC `get_amount_out`
@@ -220,6 +245,7 @@ private:
     // utils
     pair<extended_asset, name> parse_memo(string memo);
     double calculate_price( const asset value0, const asset value1 );
+    double calculate_virtual_price( const asset value0, const asset value1, const asset supply );
 
     // find pair_id based on symbol_code of incoming tokens and memo
     symbol_code find_pair_id( const symbol_code symcode_in, const symbol_code symcode_memo );
