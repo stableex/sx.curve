@@ -49,10 +49,18 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     check(false, "not implemented");
 }
 
+// returns any remaining orders to owner account
 [[eosio::action]]
 void sx::curve::cancel( const name owner, const symbol_code pair_id )
 {
-    check(false, "not implemented");
+    if ( !has_auth( get_self() )) require_auth( owner );
+
+    sx::curve::orders_table _orders( get_self(), pair_id.raw() );
+    auto itr = _orders.find( owner.value );
+    if ( itr->quantity0.quantity.amount ) transfer( get_self(), owner, itr->quantity0, "cancel");
+    if ( itr->quantity1.quantity.amount ) transfer( get_self(), owner, itr->quantity1, "cancel");
+
+    _orders.erase( itr );
 }
 
 void sx::curve::add_liquidity( const symbol_code id, const name owner, const extended_asset value )
@@ -72,12 +80,12 @@ void sx::curve::add_liquidity( const symbol_code id, const name owner, const ext
     // initialize quantities
     auto insert = [&]( auto & row ) {
         row.owner = owner;
-        row.quantity0 = { itr->quantity0.amount, pairs.reserve0.quantity.symbol };
-        row.quantity1 = { itr->quantity1.amount, pairs.reserve1.quantity.symbol };
+        row.quantity0 = { itr->quantity0.quantity.amount, ext_sym0 };
+        row.quantity1 = { itr->quantity1.quantity.amount, ext_sym1 };
 
         // add & validate deposit
-        if ( ext_sym_in == ext_sym0 ) row.quantity0.amount += value.quantity.amount;
-        else if ( ext_sym_in == ext_sym1 ) row.quantity1.amount += value.quantity.amount;
+        if ( ext_sym_in == ext_sym0 ) row.quantity0 += value;
+        else if ( ext_sym_in == ext_sym1 ) row.quantity1 += value;
         else check( false, "invalid extended symbol when adding liquidity");
     };
 

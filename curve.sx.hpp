@@ -56,23 +56,23 @@ public:
      * *scope*: `pair_id` (symbol_code)
      *
      * - `{name} owner` - owner account
-     * - `{asset} quantity0` - quantity asset
-     * - `{asset} quantity1` - quantity asset
+     * - `{extended_asset} quantity0` - quantity asset
+     * - `{extended_asset} quantity1` - quantity asset
      *
      * ### example
      *
      * ```json
      * {
      *   "owner": "myaccount",
-     *   "quantity0": "1000.0000 A",
-     *   "quantity1": "1000.0000 B"
+     *   "quantity0": {"contract": "eosio.token", "quantity": "1000.0000 A"},
+     *   "quantity1": {"contract": "eosio.token", "quantity": "1000.0000 B"},
      * }
      * ```
      */
     struct [[eosio::table("orders")]] orders_row {
-        name            owner;
-        asset           quantity0;
-        asset           quantity1;
+        name                owner;
+        extended_asset      quantity0;
+        extended_asset      quantity1;
 
         uint64_t primary_key() const { return owner.value; }
     };
