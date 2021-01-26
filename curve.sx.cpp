@@ -199,13 +199,14 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "reserve0 symbol mismatch" );
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
     check( amount0 == amount1, "reserve0 & reserve1 normalized amount must match");
-    check( !find_pair_id(sym0.code(), sym1.code()).is_valid(), "pair with these reserves already exists" );
+    check( !find_pair_id( sym0.code(), sym1.code() ).is_valid(), "pair with these reserves already exists" );
+    check( _pairs.find( id.raw() ) == _pairs.end(), "pair id already exists" );
 
     // create liquidity token
     const extended_asset liquidity = { asset{ amount0 + amount1, { id, MAX_PRECISION }}, get_self() };
 
-    // pairs content
-    auto insert = [&]( auto & row ) {
+    // create pair
+    _pairs.emplace( get_self(), [&]( auto & row ) {
         row.id = id;
         row.reserve0 = reserve0;
         row.reserve1 = reserve1;
@@ -214,12 +215,7 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
         row.volume0 = { 0, sym0 };
         row.volume1 = { 0, sym1 };
         row.last_updated = current_time_point();
-    };
-
-    // create/modify pairs
-    auto itr = _pairs.find( id.raw() );
-    if ( itr == _pairs.end() ) _pairs.emplace( get_self(), insert );
-    else check( false, "`setpair` cannot modify, must first `delete` pair");
+    });
 }
 
 // find all possible paths to exchange symcode_in to memo symcode, include 2-hops
@@ -228,10 +224,9 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( const symbol_code symco
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     check( symcode_in != symcode_out, "conversion target symbol must not match incoming symbol");
 
-    vector<vector<symbol_code>> paths;
-
     // find first valid hop
-    vector<pair<symbol_code, symbol_code>> hop_one;     // {id, symbol_code}
+    vector<vector<symbol_code>> paths;
+    vector<pair<symbol_code, symbol_code>> hop_one;     // {pair id, first hop symbol_code}
     for (const auto& row : _pairs) {
         symbol_code sc1 = row.reserve0.quantity.symbol.code();
         symbol_code sc2 = row.reserve1.quantity.symbol.code();
@@ -243,10 +238,11 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( const symbol_code symco
     }
 
     // find all possible second hops
-    for(const auto& [id, sc_in] : hop_one) {
+    for(const auto& [id1, sc_in] : hop_one) {
         auto id2 = find_pair_id(sc_in, symcode_out);
-        if(id2.is_valid()) paths.push_back({id, id2});
+        if(id2.is_valid()) paths.push_back({id1, id2});
     }
+
     return paths;
 }
 
