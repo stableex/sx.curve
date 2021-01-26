@@ -67,9 +67,6 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
 
     // transfer amount to receiver
     transfer( get_self(), receiver, best_out, "swap" );
-
-    // sx::stats::swaplog_action swaplog( "stats.sx"_n, { get_self(), "active"_n });
-    // swaplog.send( get_self(), from, quantity, best_out.quantity, config.trade_fee );
 }
 
 pair<extended_asset, name> sx::curve::parse_memo(string memo){
@@ -240,7 +237,7 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
         const extended_asset reserve_in = is_in ? row.reserve0 : row.reserve1;
         const extended_asset reserve_out = is_in ? row.reserve1 : row.reserve0;
 
-        if (reserve_in.contract != ext_quantity.contract || reserve_in.quantity.symbol != ext_quantity.quantity.symbol) {
+        if (reserve_in.get_extended_symbol() != ext_quantity.get_extended_symbol()) {
             check(!finalize, "incoming currency/reserves contract mismatch");
             return {};
         }
