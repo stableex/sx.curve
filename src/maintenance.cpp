@@ -7,15 +7,19 @@ void sx::curve::test( const uint64_t amount, const uint64_t reserve_in, const ui
 }
 
 [[eosio::action]]
-void sx::curve::reset()
+void sx::curve::reset( const name table )
 {
     require_auth( get_self() );
 
-    sx::curve::config _config( get_self(), get_self().value );
-    sx::curve::pairs _pairs( get_self(), get_self().value );
+    sx::curve::config_table _config( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    sx::curve::backup_table _backup( get_self(), get_self().value );
+    sx::curve::orders_table _orders( get_self(), get_self().value );
 
-    _config.remove();
-    clear_table( _pairs );
+    if ( table == "config"_n ) _config.remove();
+    if ( table == "pairs"_n ) clear_table( _pairs );
+    if ( table == "backup"_n ) clear_table( _backup );
+    if ( table == "orders"_n ) clear_table( _orders );
 }
 
 template <typename T>
@@ -30,7 +34,9 @@ void sx::curve::clear_table( T& table )
 [[eosio::action]]
 void sx::curve::backup()
 {
-    sx::curve::pairs _pairs( get_self(), get_self().value );
+    require_auth( get_self() );
+
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
     sx::curve::backup_table _backup( get_self(), get_self().value );
     clear_table( _backup );
 
@@ -55,7 +61,9 @@ void sx::curve::backup()
 [[eosio::action]]
 void sx::curve::copy()
 {
-    sx::curve::pairs _pairs( get_self(), get_self().value );
+    require_auth( get_self() );
+
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
     sx::curve::backup_table _backup( get_self(), get_self().value );
     clear_table( _pairs );
 

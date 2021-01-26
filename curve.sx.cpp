@@ -18,7 +18,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     if ( to != get_self() || memo == get_self().to_string() || from == "eosio.ram"_n) return;
 
     // config
-    sx::curve::config _config( get_self(), get_self().value );
+    sx::curve::config_table _config( get_self(), get_self().value );
     check( _config.exists(), "contract is under maintenance");
     auto config = _config.get();
 
@@ -90,7 +90,7 @@ pair<extended_asset, name> sx::curve::parse_memo(string memo){
 // find pair_id based on symbol_code of incoming tokens and memo
 symbol_code sx::curve::find_pair_id( const symbol_code symcode_in, const symbol_code symcode_memo )
 {
-    sx::curve::pairs _pairs( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
     // find by input quantity
     auto itr0 = _pairs.find( symcode_in.raw() );
@@ -117,7 +117,7 @@ symbol_code sx::curve::find_pair_id( const symbol_code symcode_in, const symbol_
 void sx::curve::setconfig( const std::optional<sx::curve::config_row> config )
 {
     require_auth( get_self() );
-    sx::curve::config _config( get_self(), get_self().value );
+    sx::curve::config_table _config( get_self(), get_self().value );
 
     // clear table if setting is `null`
     if ( !config ) return _config.remove();
@@ -129,7 +129,7 @@ void sx::curve::setconfig( const std::optional<sx::curve::config_row> config )
 void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, const extended_asset reserve1, const uint64_t amplifier )
 {
     require_auth( get_self() );
-    sx::curve::pairs _pairs( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
     // reserve params
     const name contract0 = reserve0.contract;
@@ -158,6 +158,8 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
         row.reserve1 = reserve1;
         row.liquidity = liquidity;
         row.amplifier = amplifier;
+        row.volume0 = { 0, sym0 };
+        row.volume1 = { 0, sym1 };
         row.last_updated = current_time_point();
     };
 
@@ -168,8 +170,9 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
 }
 
 // find all possible paths to trade symcode_in to memo symcode, include 2-hops
-vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in, symbol_code symcode_memo )
+vector<vector<symbol_code>> sx::curve::find_trade_paths( const symbol_code symcode_in, const symbol_code symcode_memo )
 {
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
     check( symcode_in != symcode_memo, "memo symbol must not match quantity symbol");
 
     vector<vector<symbol_code>> paths;
@@ -179,7 +182,6 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in,
     if (direct.is_valid()) paths.push_back({ direct });
 
     //then - try to find via 2 hops
-    sx::curve::pairs _pairs( get_self(), get_self().value );
     if (_pairs.find(symcode_memo.raw()) != _pairs.end()) return paths;    // LP token memo only for direct trades
 
     for (const auto& row : _pairs) {
@@ -197,7 +199,7 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( symbol_code symcode_in,
 
 extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector<symbol_code> path, const bool finalize /*=false*/ )
 {
-    sx::curve::pairs _pairs( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
     extended_asset ext_quantity = ext_in;
     check( path.size(), "path is empty");
     for (auto pair_id : path) {
@@ -231,8 +233,8 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
                 row.price1_last = is_in ? price : 1 / price;
 
                 // calculate incoming culmative trading volume
-                row.volume0 += is_in ? ext_quantity.quantity : asset{ 0, ext_quantity.quantity.symbol };
-                row.volume1 += is_in ? asset{ 0, ext_quantity.quantity.symbol } : ext_quantity.quantity;
+                if ( is_in ) row.volume0 += ext_quantity.quantity;
+                if ( !is_in ) row.volume1 += ext_quantity.quantity;
                 row.last_updated = current_time_point();
             });
         }

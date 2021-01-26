@@ -48,7 +48,7 @@ public:
         uint8_t             protocol_fee = 0;
         name                fee_account = "fee.sx"_n;
     };
-    typedef eosio::singleton< "config"_n, config_row > config;
+    typedef eosio::singleton< "config"_n, config_row > config_table;
 
     /**
      * ## TABLE `orders`
@@ -76,7 +76,7 @@ public:
 
         uint64_t primary_key() const { return owner.value; }
     };
-    typedef eosio::multi_index< "orders"_n, orders_row> orders;
+    typedef eosio::multi_index< "orders"_n, orders_row> orders_table;
 
     /**
      * ## TABLE `pairs`
@@ -128,7 +128,7 @@ public:
     };
     typedef eosio::multi_index< "pairs"_n, pairs_row,
         indexed_by<"byreserves"_n, const_mem_fun<pairs_row, uint128_t, &pairs_row::by_reserves>>
-    > pairs;
+    > pairs_table;
 
     static uint128_t compute_by_symcodes( const symbol_code symcode0, const symbol_code symcode1 ) {
         return ((uint128_t) symcode0.raw()) << 64 | symcode1.raw();
@@ -161,7 +161,7 @@ public:
 
     // MAINTENANCE (TESTING ONLY)
     [[eosio::action]]
-    void reset();
+    void reset( const name table );
 
     [[eosio::action]]
     void backup();
@@ -198,8 +198,8 @@ public:
      */
     static asset get_amount_out( const asset in, const symbol_code pair_id )
     {
-        sx::curve::config _config( sx::curve::code, sx::curve::code.value );
-        sx::curve::pairs _pairs( sx::curve::code, sx::curve::code.value );
+        sx::curve::config_table _config( sx::curve::code, sx::curve::code.value );
+        sx::curve::pairs_table _pairs( sx::curve::code, sx::curve::code.value );
         check( _config.exists(), "Curve.sx: contract is under maintenance");
 
         // get configs
@@ -251,7 +251,7 @@ private:
     symbol_code find_pair_id( const symbol_code symcode_in, const symbol_code symcode_memo );
 
     // find all possible paths to trade symcode_in to memo symcode, include 2-hops
-    vector<vector<symbol_code>> find_trade_paths( symbol_code symcode_in, symbol_code symcode_memo );
+    vector<vector<symbol_code>> find_trade_paths( const symbol_code symcode_in, const symbol_code symcode_memo );
 
     // calculate out for trade via {path}, finalize it if {finalize}==true
     extended_asset apply_trade( extended_asset ext_quantity, const vector<symbol_code> path, bool finalize = false );
