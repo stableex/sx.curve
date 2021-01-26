@@ -246,51 +246,49 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( const symbol_code symco
     return paths;
 }
 
-extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector<symbol_code> path, const bool finalize /*=false*/ )
+extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const vector<symbol_code>& path, const bool finalize /*=false*/ )
 {
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    extended_asset ext_quantity = ext_in;
+    extended_asset ext_out, ext_in = ext_quantity;
     check( path.size(), "exchange path is empty");
     for (auto pair_id : path) {
         const auto& pairs = _pairs.get( pair_id.raw(), "pair id does not exist");
-        const bool is_in = pairs.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
+        const bool is_in = pairs.reserve0.quantity.symbol == ext_in.quantity.symbol;
         const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
         const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
 
-        if (reserve_in.get_extended_symbol() != ext_quantity.get_extended_symbol()) {
+        if (reserve_in.get_extended_symbol() != ext_in.get_extended_symbol()) {
             check(!finalize, "incoming currency/reserves contract mismatch");
             return {};
         }
 
         // calculate out
-        const extended_asset ext_out = { get_amount_out( ext_quantity.quantity, pair_id ), reserve_out.contract };
+        ext_out = { get_amount_out( ext_in.quantity, pair_id ), reserve_out.contract };
 
         if (finalize) {
             // modify reserves
             _pairs.modify( pairs, get_self(), [&]( auto & row ) {
                 if ( is_in ) {
-                    row.reserve0.quantity += ext_quantity.quantity;
+                    row.reserve0.quantity += ext_in.quantity;
                     row.reserve1.quantity -= ext_out.quantity;
+                    row.volume0 += ext_in.quantity;
                 } else {
-                    row.reserve1.quantity += ext_quantity.quantity;
+                    row.reserve1.quantity += ext_in.quantity;
                     row.reserve0.quantity -= ext_out.quantity;
+                    row.volume1 += ext_in.quantity;
                 }
                 // calculate last price
-                const double price = calculate_price( ext_quantity.quantity, ext_out.quantity );
+                const double price = calculate_price( ext_in.quantity, ext_out.quantity );
                 row.virtual_price = calculate_virtual_price( row.reserve0.quantity, row.reserve1.quantity, row.liquidity.quantity );
                 row.price0_last = is_in ? 1 / price : price;
                 row.price1_last = is_in ? price : 1 / price;
-
-                // calculate incoming culmative trading volume
-                if ( is_in ) row.volume0 += ext_quantity.quantity;
-                if ( !is_in ) row.volume1 += ext_quantity.quantity;
                 row.last_updated = current_time_point();
             });
         }
-        ext_quantity = ext_out;
+        ext_in = ext_out;
     }
 
-    return ext_quantity;
+    return ext_out;
 }
 
 double sx::curve::calculate_virtual_price( const asset value0, const asset value1, const asset supply )
