@@ -33,19 +33,57 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     auto itr = _pairs.find(symcode_memo.raw());
 
-    if(itr != _pairs.end()){
-        check(memo == symcode_memo.to_string(), "memo should contain liquidity symbol code only");
-        add_liquidity(ext_in, symcode_memo);
+    if (itr != _pairs.end()){
+        check( memo == symcode_memo.to_string(), "memo should contain liquidity symbol code only");
+        check( from == receiver, "receiver cannot be defined when adding liquidity" );
+        add_liquidity(symcode_memo, from, ext_in);
     }
     else {
         convert(ext_in, ext_min_out, receiver);
     }
 }
 
+[[eosio::action]]
+void sx::curve::deposit( const name owner, const symbol_code pair_id )
+{
+    check(false, "not implemented");
+}
 
-void sx::curve::add_liquidity(const extended_asset ext_in, symbol_code liquidity){
+[[eosio::action]]
+void sx::curve::cancel( const name owner, const symbol_code pair_id )
+{
+    check(false, "not implemented");
+}
 
-    check(false, "add_liquidity not implemented yet");
+void sx::curve::add_liquidity( const symbol_code id, const name owner, const extended_asset value )
+{
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    sx::curve::orders_table _orders( get_self(), id.raw() );
+
+    // get current order & pairs
+    auto pairs = _pairs.get( id.raw(), "pairs does not exist");
+    auto itr = _orders.find( owner.value );
+
+    // extended symbols
+    const extended_symbol ext_sym_in = value.get_extended_symbol();
+    const extended_symbol ext_sym0 = pairs.reserve0.get_extended_symbol();
+    const extended_symbol ext_sym1 = pairs.reserve1.get_extended_symbol();
+
+    // initialize quantities
+    auto insert = [&]( auto & row ) {
+        row.owner = owner;
+        row.quantity0 = { itr->quantity0.amount, pairs.reserve0.quantity.symbol };
+        row.quantity1 = { itr->quantity1.amount, pairs.reserve1.quantity.symbol };
+
+        // add & validate deposit
+        if ( ext_sym_in == ext_sym0 ) row.quantity0.amount += value.quantity.amount;
+        else if ( ext_sym_in == ext_sym1 ) row.quantity1.amount += value.quantity.amount;
+        else check( false, "invalid extended symbol when adding liquidity");
+    };
+
+    // create/modify order
+    if ( itr == _orders.end() ) _orders.emplace( get_self(), insert );
+    else _orders.modify( itr, get_self(), insert );
 }
 
 void sx::curve::convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver) {

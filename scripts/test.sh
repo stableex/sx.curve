@@ -41,6 +41,7 @@ cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A, myaccount"
 cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A,myaccount,curve.sx"
 cleos transfer myaccount curve.sx "100.0000 A" "AC,curve.sx"
 cleos transfer myaccount curve.sx "100.0000 A" "AC,nonexistuser"
+cleos transfer myaccount curve.sx "100.0000 A" "B" --contract fake.token
 
 # swap must pass
 printf "\nTransactions below must ${LIGHTGREEN}PASS${NOCOLOR}\n\n"
@@ -53,3 +54,7 @@ cleos transfer myaccount curve.sx "100.00000000 C" "90.0000 A"
 cleos transfer myaccount curve.sx "100.0000 C" "A,myaccount"
 cleos transfer myaccount curve.sx "100.0000 B" "C"
 cleos transfer myaccount curve.sx "100.0000 A" "C"
+
+# add liquidity
+cleos transfer myaccount curve.sx "100.0000 A" "AB"
+cleos transfer myaccount curve.sx "100.0000 B" "AB"

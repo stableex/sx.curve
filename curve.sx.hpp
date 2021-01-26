@@ -156,6 +156,12 @@ public:
     [[eosio::action]]
     void setpair( const symbol_code id, const extended_asset reserve0, const extended_asset reserve1, const uint64_t amplifier );
 
+    [[eosio::action]]
+    void deposit( const name owner, const symbol_code pair_id );
+
+    [[eosio::action]]
+    void cancel( const name owner, const symbol_code pair_id );
+
     [[eosio::on_notify("*::transfer")]]
     void on_transfer( const name from, const name to, const asset quantity, const std::string memo );
 
@@ -243,7 +249,7 @@ private:
     void issue( const extended_asset value, const string memo );
 
     void convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver);
-    void add_liquidity(const extended_asset ext_in, symbol_code liquidity);
+    void add_liquidity( const symbol_code id, const name owner, const extended_asset value );
 
     // utils
     pair<extended_asset, name> parse_memo(const string memo);
