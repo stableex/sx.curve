@@ -199,6 +199,7 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "reserve0 symbol mismatch" );
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
     check( amount0 == amount1, "reserve0 & reserve1 normalized amount must match");
+    check( !find_pair_id(sym0.code(), sym1.code()).is_valid(), "pair with these reserves already exists" );
 
     // create liquidity token
     const extended_asset liquidity = { asset{ amount0 + amount1, { id, MAX_PRECISION }}, get_self() };
