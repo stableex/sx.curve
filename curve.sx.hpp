@@ -242,6 +242,9 @@ private:
     void retire( const extended_asset value, const string memo );
     void issue( const extended_asset value, const string memo );
 
+    void convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver);
+    void add_liquidity(const extended_asset ext_in, symbol_code liquidity);
+
     // utils
     pair<extended_asset, name> parse_memo(const string memo);
     double calculate_price( const asset value0, const asset value1 );
@@ -251,7 +254,7 @@ private:
     symbol_code find_pair_id( const symbol_code symcode_in, const symbol_code symcode_memo );
 
     // find all possible paths to trade symcode_in to memo symcode, include 2-hops
-    vector<vector<symbol_code>> find_trade_paths( const symbol_code symcode_in, const symbol_code symcode_memo );
+    vector<vector<symbol_code>> find_trade_paths( const symbol_code symcode_in, const symbol_code symcode_out );
 
     // calculate out for trade via {path}, finalize it if {finalize}==true
     extended_asset apply_trade( const extended_asset ext_in, const vector<symbol_code> path, bool finalize = false );

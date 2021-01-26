@@ -20,21 +20,39 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     // config
     sx::curve::config_table _config( get_self(), get_self().value );
     check( _config.exists(), "contract is under maintenance");
-    auto config = _config.get();
 
     // TEMP - DURING TESTING PERIOD
     check( from.suffix() == "sx"_n || from == "myaccount"_n, "account must be *.sx during testing period");
 
     // user input params
-    const name contract = get_first_receiver();
-    auto [ min_ext_out, receiver ] = parse_memo(memo);
+    auto [ ext_min_out, receiver ] = parse_memo(memo);
     receiver = receiver.value ? receiver : from;
-    const symbol_code memo_symcode = min_ext_out.quantity.symbol.code();
-    const extended_asset ext_in {quantity, contract};
+    const symbol_code symcode_memo = ext_min_out.quantity.symbol.code();
+    const extended_asset ext_in {quantity, get_first_receiver()};
+
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    auto itr = _pairs.find(symcode_memo.raw());
+
+    if(itr != _pairs.end()){
+        check(memo == symcode_memo.to_string(), "memo should contain liquidity symbol code only");
+        add_liquidity(ext_in, symcode_memo);
+    }
+    else {
+        convert(ext_in, ext_min_out, receiver);
+    }
+}
+
+
+void sx::curve::add_liquidity(const extended_asset ext_in, symbol_code liquidity){
+
+    check(false, "add_liquidity not implemented yet");
+}
+
+void sx::curve::convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver) {
 
     // find all possible trade paths
-    auto paths = find_trade_paths( quantity.symbol.code(), memo_symcode );
-    check(paths.size(), "no path for a trade");
+    auto paths = find_trade_paths( ext_in.quantity.symbol.code(), ext_min_out.quantity.symbol.code() );
+    check(paths.size(), "no path for exchange");
 
     // choose trade path that gets the best return
     auto best_path = paths[0];
@@ -46,11 +64,10 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
             best_out = out;
         }
     }
-
-    check(best_out.quantity.amount, "no matching trade");
-    check(min_ext_out.contract.value == 0 || min_ext_out.contract == best_out.contract, "reserve_out vs memo contract mismatch");
-    check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.symbol == best_out.quantity.symbol, "return vs memo symbol precision mismatch");
-    check(min_ext_out.quantity.amount == 0 || min_ext_out.quantity.amount <= best_out.quantity.amount, "return is not enough");
+    check(best_out.quantity.amount, "no matching exchange");
+    check(ext_min_out.contract.value == 0 || ext_min_out.contract == best_out.contract, "reserve_out vs memo contract mismatch");
+    check(ext_min_out.quantity.amount == 0 || ext_min_out.quantity.symbol == best_out.quantity.symbol, "return vs memo symbol precision mismatch");
+    check(ext_min_out.quantity.amount == 0 || ext_min_out.quantity.amount <= best_out.quantity.amount, "return is not enough");
 
     // execute the trade by updating all involved pools
     best_out = apply_trade(ext_in, best_path, true);
@@ -85,26 +102,17 @@ pair<extended_asset, name> sx::curve::parse_memo(const string memo){
     return {};
 }
 
-// find pair_id based on symbol_code of incoming tokens and memo
-symbol_code sx::curve::find_pair_id( const symbol_code symcode_in, const symbol_code symcode_memo )
+// find pair_id based on symbol_code of incoming and target tokens
+symbol_code sx::curve::find_pair_id( const symbol_code symcode_in, const symbol_code symcode_out )
 {
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
-    // find by input quantity
-    auto itr0 = _pairs.find( symcode_in.raw() );
-    if ( itr0 != _pairs.end() ) return itr0->id;
-
-    // find by memo symbol
-    auto itr1 = _pairs.find( symcode_memo.raw() );
-    if ( itr1 != _pairs.end() && (itr1->reserve0.quantity.symbol.code()==symcode_in || itr1->reserve1.quantity.symbol.code()==symcode_in))
-        return itr1->id;
-
     // find by combination of input quantity & memo symbol
     auto _pairs_by_reserves = _pairs.get_index<"byreserves"_n>();
-    auto itr = _pairs_by_reserves.find( compute_by_symcodes( symcode_in, symcode_memo ) );
+    auto itr = _pairs_by_reserves.find( compute_by_symcodes( symcode_in, symcode_out ) );
     if ( itr != _pairs_by_reserves.end() ) return itr->id;
 
-    itr = _pairs_by_reserves.find( compute_by_symcodes( symcode_memo, symcode_in ) );
+    itr = _pairs_by_reserves.find( compute_by_symcodes( symcode_out, symcode_in ) );
     if ( itr != _pairs_by_reserves.end() ) return itr->id;
 
     // nothing found - return empty
@@ -167,29 +175,35 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     else check( false, "`setpair` cannot modify, must first `delete` pair");
 }
 
-// find all possible paths to trade symcode_in to memo symcode, include 2-hops
-vector<vector<symbol_code>> sx::curve::find_trade_paths( const symbol_code symcode_in, const symbol_code symcode_memo )
+// find all possible paths to exchange symcode_in to memo symcode, include 2-hops
+vector<vector<symbol_code>> sx::curve::find_trade_paths( const symbol_code symcode_in, const symbol_code symcode_out )
 {
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    check( symcode_in != symcode_memo, "memo symbol must not match quantity symbol");
+    check( symcode_in != symcode_out, "conversion target symbol must not match incoming symbol");
 
     vector<vector<symbol_code>> paths;
 
-    //if direct path exists
-    auto direct = find_pair_id(symcode_in, symcode_memo);
-    if (direct.is_valid()) paths.push_back({ direct });
-
-    //then - try to find via 2 hops
-    if (_pairs.find(symcode_memo.raw()) != _pairs.end()) return paths;    // LP token memo only for direct trades
-
+    // find first valid hop
+    vector<pair<symbol_code, symbol_code>> hop_one;     // {id, symbol_code}
     for (const auto& row : _pairs) {
         symbol_code sc1 = row.reserve0.quantity.symbol.code();
         symbol_code sc2 = row.reserve1.quantity.symbol.code();
 
         if (sc1 != symcode_in) std::swap(sc1, sc2);
-        if (sc1 != symcode_in || row.id == direct) continue;         // if this row doesn't contain our in symbol or it's a direct path - skip
-        auto hop2 = find_pair_id(sc2, symcode_memo);
-        if (hop2.is_valid()) paths.push_back({row.id, hop2});
+        if (sc1 != symcode_in) continue;
+        if (sc2 == symcode_out) paths.push_back({row.id});  //direct path
+        else hop_one.push_back({row.id, sc2});
+    }
+
+    // find all possible second hops
+    for(const auto& [id, sc_in] : hop_one) {
+        for (const auto& row : _pairs) {
+            symbol_code sc1 = row.reserve0.quantity.symbol.code();
+            symbol_code sc2 = row.reserve1.quantity.symbol.code();
+
+            if (sc1 != sc_in) std::swap(sc1, sc2);
+            if (sc1 == symcode_out) paths.push_back({id, row.id});
+        }
     }
 
     return paths;
@@ -199,10 +213,10 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
 {
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     extended_asset ext_quantity = ext_in;
-    check( path.size(), "path is empty");
+    check( path.size(), "exchange path is empty");
     for (auto pair_id : path) {
-        const auto& pairs = _pairs.get( pair_id.raw(), "pair id does not exist");
         const bool is_in = pairs.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
+        const auto& pairs = _pairs.get( pair_id.raw(), "pair id does not exist");
         const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
         const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
 
@@ -221,8 +235,8 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector
                     row.reserve0.quantity += ext_quantity.quantity;
                     row.reserve1.quantity -= ext_out.quantity;
                 } else {
-                    row.reserve0.quantity -= ext_out.quantity;
                     row.reserve1.quantity += ext_quantity.quantity;
+                    row.reserve0.quantity -= ext_out.quantity;
                 }
                 // calculate last price
                 const double price = calculate_price( ext_quantity.quantity, ext_out.quantity );
