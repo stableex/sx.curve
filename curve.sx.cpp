@@ -57,18 +57,20 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     auto config = _config.get();
 
     // get current order & pairs
-    auto pairs = _pairs.get( pair_id.raw(), "pairs does not exist");
+    auto pairs = _pairs.get( pair_id.raw(), "pair does not exist");
     auto itr = _orders.find( owner.value );
+    check( itr != _orders.end(), "no deposits for this user");
+
     const symbol sym0 = pairs.reserve0.quantity.symbol;
     const symbol sym1 = pairs.reserve1.quantity.symbol;
 
     // calculate total deposits based on reserves
     const int64_t supply = mul_amount(pairs.liquidity.quantity.amount, MAX_PRECISION, pairs.liquidity.quantity.symbol.precision());
-    const int64_t deposit0 = mul_amount(pairs.reserve0.quantity.amount, MAX_PRECISION, sym0.precision());
-    const int64_t deposit1 = mul_amount(pairs.reserve1.quantity.amount, MAX_PRECISION, sym1.precision());
-    const int64_t deposit = deposit0 + deposit1;
-    const double deposit_ratio0 = double(deposit0) / deposit;
-    const double deposit_ratio1 = double(deposit1) / deposit;
+    const int64_t reserve0 = mul_amount(pairs.reserve0.quantity.amount, MAX_PRECISION, sym0.precision());
+    const int64_t reserve1 = mul_amount(pairs.reserve1.quantity.amount, MAX_PRECISION, sym1.precision());
+    const int64_t reserves = reserve0 + reserve1;
+    const double reserve_ratio0 = double(reserve0) / reserves;
+    const double reserve_ratio1 = double(reserve1) / reserves;
 
     // get owner order and calculate payment
     const int64_t amount0 = mul_amount(itr->quantity0.quantity.amount, MAX_PRECISION, sym0.precision());
@@ -77,19 +79,71 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     const double amount_ratio0 = double(amount0) / payment;
     const double amount_ratio1 = double(amount1) / payment;
 
-    print( "supply: " + to_string(supply) + "\n");
-    print( "deposit0: " + to_string(deposit0) + "\n");
-    print( "deposit1: " + to_string(deposit1) + "\n");
-    print( "deposit_ratio0: " + to_string(deposit_ratio0) + "\n");
-    print( "deposit_ratio1: " + to_string(deposit_ratio1) + "\n");
-    print( "deposit: " + to_string(deposit) + "\n");
-    print( "amount0: " + to_string(amount0) + "\n");
-    print( "amount1: " + to_string(amount1) + "\n");
+    //actual amounts to deposit
+    int64_t deposit0 = amount0;
+    int64_t deposit1 = amount1;
+
+    print( "\nexisting supply: " + to_string(supply) + "\n");
+    print( "existing reserve0: " + to_string(reserve0) + "\n");
+    print( "existing reserve1: " + to_string(reserve1) + "\n");
+    print( "reserve_ratio0: " + to_string(reserve_ratio0) + "\n");
+    print( "reserve_ratio1: " + to_string(reserve_ratio1) + "\n");
+    print( "reserves: " + to_string(reserves) + "\n");
     print( "payment: " + to_string(payment) + "\n");
     print( "amount_ratio0: " + to_string(amount_ratio0) + "\n");
     print( "amount_ratio1: " + to_string(amount_ratio1) + "\n");
+    print( "incoming amount0: " + to_string(amount0) + "\n");
+    print( "incoming amount1: " + to_string(amount1) + "\n");
 
-    // _orders.erase( itr );
+    if(amount_ratio0 <= reserve_ratio0) {
+        deposit1 = ((uint128_t) amount0) * reserve1 / reserve0;
+    }
+    else {
+        deposit0 = ((uint128_t) amount1) * reserve0 / reserve1;
+    }
+
+    print( "to deposit0: " + to_string(deposit0) + "\n");
+    print( "to deposit1: " + to_string(deposit1) + "\n");
+
+    if(deposit0 < amount0) {
+        const int64_t excess_amount = div_amount(amount0, MAX_PRECISION, sym0.precision()) - div_amount(deposit0, MAX_PRECISION, sym0.precision());
+        const extended_asset excess = { excess_amount, pairs.reserve0.get_extended_symbol() };
+        transfer( get_self(), owner, excess, "excess");
+        print("\nSending excess ", excess, " to ", owner);
+    }
+    if(deposit1 < amount1) {
+        const int64_t excess_amount = div_amount(amount1, MAX_PRECISION, sym1.precision()) - div_amount(deposit1, MAX_PRECISION, sym1.precision());
+        const extended_asset excess = { excess_amount, pairs.reserve1.get_extended_symbol() };
+        transfer( get_self(), owner, excess, "excess");
+        print("\nSending excess ", excess, " to ", owner);
+    }
+
+    const extended_asset ext_deposit0 = { div_amount(deposit0, MAX_PRECISION, sym0.precision()), pairs.reserve0.get_extended_symbol()};
+    const extended_asset ext_deposit1 = { div_amount(deposit1, MAX_PRECISION, sym1.precision()), pairs.reserve1.get_extended_symbol()};
+
+    //issue liquidity
+    const int64_t issued_amount = rex::issue(deposit0 + deposit1, reserves, supply);
+    const extended_asset issued = { div_amount(issued_amount, MAX_PRECISION, pairs.liquidity.quantity.symbol.precision()), pairs.liquidity.get_extended_symbol()};
+
+    print( "\nDepositing: ", ext_deposit0, " + ", ext_deposit1);
+    print( "\nIssuing ", issued, " and sending to ", owner);
+
+    // initialize quantities
+    auto modify = [&]( auto & row ) {
+        row.reserve0 += ext_deposit0;
+        row.reserve1 += ext_deposit1;
+        row.liquidity += issued;
+    };
+
+    // modify pair
+    auto pair_itr = _pairs.find( pair_id.raw());
+    check(pair_itr != _pairs.end(), "no pair for deposit");
+    _pairs.modify(pair_itr, get_self(), modify );
+
+    transfer( get_self(), owner, issued, "liquidity");
+
+    check(false, "see dev print");
+    _orders.erase( itr );
 }
 
 // returns any remaining orders to owner account
