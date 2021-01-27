@@ -58,4 +58,5 @@ cleos transfer myaccount curve.sx "100.0000 A" "C"
 # add liquidity
 cleos transfer myaccount curve.sx "100.0000 A" "AB"
 cleos transfer myaccount curve.sx "100.0000 B" "AB"
+cleos -v push action curve.sx deposit '["myaccount", "AB"]' -p myaccount
 cleos push action curve.sx cancel '["myaccount", "AB"]' -p myaccount
