@@ -234,12 +234,14 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
     check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "reserve0 symbol mismatch" );
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
     check( amount0 == amount1, "reserve0 & reserve1 normalized amount must match");
+    check( !find_pair_id( sym0.code(), sym1.code() ).is_valid(), "pair with these reserves already exists" );
+    check( _pairs.find( id.raw() ) == _pairs.end(), "pair id already exists" );
 
     // create liquidity token
     const extended_asset liquidity = { asset{ amount0 + amount1, { id, MAX_PRECISION }}, get_self() };
 
-    // pairs content
-    auto insert = [&]( auto & row ) {
+    // create pair
+    _pairs.emplace( get_self(), [&]( auto & row ) {
         row.id = id;
         row.reserve0 = reserve0;
         row.reserve1 = reserve1;
@@ -248,12 +250,7 @@ void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, co
         row.volume0 = { 0, sym0 };
         row.volume1 = { 0, sym1 };
         row.last_updated = current_time_point();
-    };
-
-    // create/modify pairs
-    auto itr = _pairs.find( id.raw() );
-    if ( itr == _pairs.end() ) _pairs.emplace( get_self(), insert );
-    else check( false, "`setpair` cannot modify, must first `delete` pair");
+    });
 }
 
 // find all possible paths to exchange symcode_in to memo symcode, include 2-hops
@@ -262,10 +259,9 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( const symbol_code symco
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     check( symcode_in != symcode_out, "conversion target symbol must not match incoming symbol");
 
-    vector<vector<symbol_code>> paths;
-
     // find first valid hop
-    vector<pair<symbol_code, symbol_code>> hop_one;     // {id, symbol_code}
+    vector<vector<symbol_code>> paths;
+    vector<pair<symbol_code, symbol_code>> hop_one;     // {pair id, first hop symbol_code}
     for (const auto& row : _pairs) {
         symbol_code sc1 = row.reserve0.quantity.symbol.code();
         symbol_code sc2 = row.reserve1.quantity.symbol.code();
@@ -277,58 +273,57 @@ vector<vector<symbol_code>> sx::curve::find_trade_paths( const symbol_code symco
     }
 
     // find all possible second hops
-    for(const auto& [id, sc_in] : hop_one) {
+    for(const auto& [id1, sc_in] : hop_one) {
         auto id2 = find_pair_id(sc_in, symcode_out);
-        if(id2.is_valid()) paths.push_back({id, id2});
+        if(id2.is_valid()) paths.push_back({id1, id2});
     }
+
     return paths;
 }
 
-extended_asset sx::curve::apply_trade( const extended_asset ext_in, const vector<symbol_code> path, const bool finalize /*=false*/ )
+extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const vector<symbol_code>& path, const bool finalize /*=false*/ )
 {
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    extended_asset ext_quantity = ext_in;
+    extended_asset ext_out, ext_in = ext_quantity;
     check( path.size(), "exchange path is empty");
     for (auto pair_id : path) {
         const auto& pairs = _pairs.get( pair_id.raw(), "pair id does not exist");
-        const bool is_in = pairs.reserve0.quantity.symbol == ext_quantity.quantity.symbol;
+        const bool is_in = pairs.reserve0.quantity.symbol == ext_in.quantity.symbol;
         const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
         const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
 
-        if (reserve_in.get_extended_symbol() != ext_quantity.get_extended_symbol()) {
+        if (reserve_in.get_extended_symbol() != ext_in.get_extended_symbol()) {
             check(!finalize, "incoming currency/reserves contract mismatch");
             return {};
         }
 
         // calculate out
-        const extended_asset ext_out = { get_amount_out( ext_quantity.quantity, pair_id ), reserve_out.contract };
+        ext_out = { get_amount_out( ext_in.quantity, pair_id ), reserve_out.contract };
 
         if (finalize) {
             // modify reserves
             _pairs.modify( pairs, get_self(), [&]( auto & row ) {
                 if ( is_in ) {
-                    row.reserve0.quantity += ext_quantity.quantity;
+                    row.reserve0.quantity += ext_in.quantity;
                     row.reserve1.quantity -= ext_out.quantity;
+                    row.volume0 += ext_in.quantity;
                 } else {
-                    row.reserve1.quantity += ext_quantity.quantity;
+                    row.reserve1.quantity += ext_in.quantity;
                     row.reserve0.quantity -= ext_out.quantity;
+                    row.volume1 += ext_in.quantity;
                 }
                 // calculate last price
-                const double price = calculate_price( ext_quantity.quantity, ext_out.quantity );
+                const double price = calculate_price( ext_in.quantity, ext_out.quantity );
                 row.virtual_price = calculate_virtual_price( row.reserve0.quantity, row.reserve1.quantity, row.liquidity.quantity );
                 row.price0_last = is_in ? 1 / price : price;
                 row.price1_last = is_in ? price : 1 / price;
-
-                // calculate incoming culmative trading volume
-                if ( is_in ) row.volume0 += ext_quantity.quantity;
-                if ( !is_in ) row.volume1 += ext_quantity.quantity;
                 row.last_updated = current_time_point();
             });
         }
-        ext_quantity = ext_out;
+        ext_in = ext_out;
     }
 
-    return ext_quantity;
+    return ext_out;
 }
 
 double sx::curve::calculate_virtual_price( const asset value0, const asset value1, const asset supply )
