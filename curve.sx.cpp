@@ -57,7 +57,7 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     auto config = _config.get();
 
     // get current order & pairs
-    auto pairs = _pairs.get( pair_id.raw(), "pair does not exist");
+    auto & pairs = _pairs.get( pair_id.raw(), "pair does not exist");
     auto itr = _orders.find( owner.value );
     check( itr != _orders.end(), "no deposits for this user");
     check((pairs.reserve0.quantity.amount && pairs.reserve1.quantity.amount) || (pairs.reserve0.quantity.amount==0 && pairs.reserve0.quantity.amount==0), "invalid pair reserves");
@@ -96,23 +96,19 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     print( "incoming amount0: " + to_string(amount0) + "\n");
     print( "incoming amount1: " + to_string(amount1) + "\n");
 
-    if(amount_ratio0 <= reserve_ratio0) {
-        deposit1 = ((uint128_t) amount0) * reserve1 / reserve0;
-    }
-    else {
-        deposit0 = ((uint128_t) amount1) * reserve0 / reserve1;
-    }
+    if (amount_ratio0 <= reserve_ratio0) deposit1 = ((uint128_t) amount0) * reserve1 / reserve0;
+    else deposit0 = ((uint128_t) amount1) * reserve0 / reserve1;
 
     print( "to deposit0: " + to_string(deposit0) + "\n");
     print( "to deposit1: " + to_string(deposit1) + "\n");
 
-    if(deposit0 < amount0) {
+    if (deposit0 < amount0) {
         const int64_t excess_amount = div_amount(amount0, MAX_PRECISION, sym0.precision()) - div_amount(deposit0, MAX_PRECISION, sym0.precision());
         const extended_asset excess = { excess_amount, pairs.reserve0.get_extended_symbol() };
         transfer( get_self(), owner, excess, "excess");
         print("\nSending excess ", excess, " to ", owner);
     }
-    if(deposit1 < amount1) {
+    if (deposit1 < amount1) {
         const int64_t excess_amount = div_amount(amount1, MAX_PRECISION, sym1.precision()) - div_amount(deposit1, MAX_PRECISION, sym1.precision());
         const extended_asset excess = { excess_amount, pairs.reserve1.get_extended_symbol() };
         transfer( get_self(), owner, excess, "excess");
@@ -122,28 +118,27 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     const extended_asset ext_deposit0 = { div_amount(deposit0, MAX_PRECISION, sym0.precision()), pairs.reserve0.get_extended_symbol()};
     const extended_asset ext_deposit1 = { div_amount(deposit1, MAX_PRECISION, sym1.precision()), pairs.reserve1.get_extended_symbol()};
 
-    //issue liquidity
-    const int64_t issued_amount = rex::issue(deposit0 + deposit1, reserves, supply);
+    // issue liquidity
+    const int64_t issued_amount = rex::issue(deposit0 + deposit1, reserves, supply, 1);
     const extended_asset issued = { div_amount(issued_amount, MAX_PRECISION, pairs.liquidity.quantity.symbol.precision()), pairs.liquidity.get_extended_symbol()};
+    // issue( issued, "liquidity");
 
     print( "\nDepositing: ", ext_deposit0, " + ", ext_deposit1);
     print( "\nIssuing ", issued, " and sending to ", owner);
 
-    // initialize quantities
-    auto modify = [&]( auto & row ) {
+    // add liquidity deposits & newly issued liquidity
+    _pairs.modify(pairs, get_self(), [&]( auto & row ) {
         row.reserve0 += ext_deposit0;
         row.reserve1 += ext_deposit1;
         row.liquidity += issued;
-    };
+    });
 
-    // modify pair
-    auto pair_itr = _pairs.find( pair_id.raw());
-    check(pair_itr != _pairs.end(), "no pair for deposit");
-    _pairs.modify(pair_itr, get_self(), modify );
+    // issue & transfer to owner
+    issue( issued, "deposit" );
+    transfer( get_self(), owner, issued, "deposit");
 
-    transfer( get_self(), owner, issued, "liquidity");
-
-    check(false, "see dev print");
+    // delete any remaining liquidity deposit order
+    // check(false, "see dev print");
     _orders.erase( itr );
 }
 
@@ -277,39 +272,36 @@ void sx::curve::setconfig( const std::optional<sx::curve::config_row> config )
 }
 
 [[eosio::action]]
-void sx::curve::setpair( const symbol_code id, const extended_asset reserve0, const extended_asset reserve1, const uint64_t amplifier )
+void sx::curve::createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier )
 {
-    require_auth( get_self() );
+    if ( !has_auth( get_self() )) check(false, "`createpair` is currently disabled at the moment");
+
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
     // reserve params
-    const name contract0 = reserve0.contract;
-    const name contract1 = reserve1.contract;
-    const symbol sym0 = reserve0.quantity.symbol;
-    const symbol sym1 = reserve1.quantity.symbol;
-
-    // normalize reserves
-    const int64_t amount0 = mul_amount(reserve0.quantity.amount, MAX_PRECISION, sym0.precision());
-    const int64_t amount1 = mul_amount(reserve1.quantity.amount, MAX_PRECISION, sym1.precision());
+    const name contract0 = reserve0.get_contract();
+    const name contract1 = reserve1.get_contract();
+    const symbol sym0 = reserve0.get_symbol();
+    const symbol sym1 = reserve1.get_symbol();
 
     // check reserves
     check( is_account( contract0 ), "reserve0 contract does not exists");
     check( is_account( contract1 ), "reserve1 contract does not exists");
     check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "reserve0 symbol mismatch" );
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
-    check( amount0 == amount1, "reserve0 & reserve1 normalized amount must match");
     check( !find_pair_id( sym0.code(), sym1.code() ).is_valid(), "pair with these reserves already exists" );
-    check( _pairs.find( id.raw() ) == _pairs.end(), "pair id already exists" );
+    check( _pairs.find( pair_id.raw() ) == _pairs.end(), "pair id already exists" );
 
     // create liquidity token
-    const extended_asset liquidity = { asset{ amount0 + amount1, { id, MAX_PRECISION }}, get_self() };
+    const extended_symbol liquidity = {{ pair_id, max(sym0.precision(), sym1.precision())}, TOKEN_CONTRACT };
+    create( liquidity );
 
     // create pair
     _pairs.emplace( get_self(), [&]( auto & row ) {
-        row.id = id;
-        row.reserve0 = reserve0;
-        row.reserve1 = reserve1;
-        row.liquidity = liquidity;
+        row.id = pair_id;
+        row.reserve0 = { 0, reserve0 };
+        row.reserve1 = { 0, reserve1 };
+        row.liquidity = { 0, liquidity };
         row.amplifier = amplifier;
         row.volume0 = { 0, sym0 };
         row.volume1 = { 0, sym1 };

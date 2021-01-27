@@ -9,15 +9,17 @@ cleos create account eosio eosio.token EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHu
 cleos create account eosio fake.token EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 cleos create account eosio myaccount EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 cleos create account eosio fee.sx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
-cleos create account eosio tokenlp.sx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
+cleos create account eosio lptoken.sx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 
 # contract
 cleos set contract curve.sx . curve.sx.wasm curve.sx.abi
+cleos set contract lptoken.sx ./include/eosio.token eosio.token.wasm eosio.token.abi
 cleos set contract eosio.token ./include/eosio.token eosio.token.wasm eosio.token.abi
 cleos set contract fake.token ./include/eosio.token eosio.token.wasm eosio.token.abi
 
 # @eosio.code permission
 cleos set account permission curve.sx active --add-code
+cleos set account permission lptoken.sx active curve.sx --add-code
 
 # create tokens
 cleos push action eosio.token create '["eosio", "100000000.0000 A"]' -p eosio.token

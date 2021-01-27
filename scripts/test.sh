@@ -18,9 +18,26 @@ cleos -v push action curve.sx test "[10000000000, $reserve_out, $reserve_in, $am
 cleos push action curve.sx setconfig '[["ok", 4, 0, "fee.sx"]]' -p curve.sx
 
 # set pair
-cleos -v push action curve.sx setpair '["AB", ["1000.0000 A", "eosio.token"], ["1000.0000 B", "eosio.token"], 20]' -p curve.sx
-cleos -v push action curve.sx setpair '["BC", ["1000.0000 B", "eosio.token"], ["1000.00000000 C", "eosio.token"], 100]' -p curve.sx
-cleos -v push action curve.sx setpair '["AC", ["1000.0000 A", "eosio.token"], ["1000.00000000 C", "eosio.token"], 200]' -p curve.sx
+cleos -v push action curve.sx createpair '["curve.sx", "AB", ["4,A", "eosio.token"], ["4,B", "eosio.token"], 20]' -p curve.sx
+cleos -v push action curve.sx createpair '["curve.sx", "BC", ["4,B", "eosio.token"], ["8,C", "eosio.token"], 100]' -p curve.sx
+cleos -v push action curve.sx createpair '["curve.sx", "AC", ["4,A", "eosio.token"], ["8,C", "eosio.token"], 200]' -p curve.sx
+
+# add liquidity to pairs
+cleos transfer myaccount curve.sx "1000.0000 A" "AB"
+cleos transfer myaccount curve.sx "1000.0000 B" "AB"
+cleos push action curve.sx deposit '["myaccount", "AB"]' -p myaccount
+
+cleos transfer myaccount curve.sx "1000.0000 B" "BC"
+cleos transfer myaccount curve.sx "1000.0000 C" "BC"
+cleos push action curve.sx deposit '["myaccount", "BC"]' -p myaccount
+
+cleos transfer myaccount curve.sx "1000.0000 A" "AC"
+cleos transfer myaccount curve.sx "1000.0000 C" "AC"
+cleos push action curve.sx deposit '["myaccount", "AC"]' -p myaccount
+
+# cancel last deposit
+cleos transfer myaccount curve.sx "1000.0000 A" "AB"
+cleos push action curve.sx cancel '["myaccount", "AB"]' -p myaccount
 
 NOCOLOR='\033[0m'
 RED='\033[0;31m'
@@ -54,9 +71,3 @@ cleos transfer myaccount curve.sx "100.00000000 C" "90.0000 A"
 cleos transfer myaccount curve.sx "100.0000 C" "A,myaccount"
 cleos transfer myaccount curve.sx "100.0000 B" "C"
 cleos transfer myaccount curve.sx "100.0000 A" "C"
-
-# add liquidity
-cleos transfer myaccount curve.sx "100.0000 A" "AB"
-cleos transfer myaccount curve.sx "100.0000 B" "AB"
-cleos -v push action curve.sx deposit '["myaccount", "AB"]' -p myaccount
-cleos push action curve.sx cancel '["myaccount", "AB"]' -p myaccount

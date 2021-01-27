@@ -13,7 +13,7 @@ using namespace std;
 static constexpr uint8_t MAX_PRECISION = 8;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
-static constexpr name TOKEN_CONTRACT = "token.sx"_n;
+static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
 
 namespace sx {
 class [[eosio::contract("curve.sx")]] curve : public eosio::contract {
@@ -154,7 +154,7 @@ public:
     void setconfig( const std::optional<sx::curve::config_row> config );
 
     [[eosio::action]]
-    void setpair( const symbol_code id, const extended_asset reserve0, const extended_asset reserve1, const uint64_t amplifier );
+    void createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier );
 
     [[eosio::action]]
     void deposit( const name owner, const symbol_code pair_id );
@@ -174,6 +174,9 @@ public:
 
     [[eosio::action]]
     void copy();
+
+    [[eosio::action]]
+    void update();
 
     [[eosio::action]]
     void test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
