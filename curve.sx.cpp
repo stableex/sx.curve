@@ -46,7 +46,42 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
 [[eosio::action]]
 void sx::curve::deposit( const name owner, const symbol_code pair_id )
 {
-    check(false, "not implemented");
+    require_auth( owner );
+
+    sx::curve::config_table _config( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    sx::curve::orders_table _orders( get_self(), pair_id.raw() );
+
+    // configs
+    check( _config.exists(), "contract is under maintenance");
+    auto config = _config.get();
+
+    // get current order & pairs
+    auto pairs = _pairs.get( pair_id.raw(), "pairs does not exist");
+    auto itr = _orders.find( owner.value );
+    const symbol sym0 = pairs.reserve0.quantity.symbol;
+    const symbol sym1 = pairs.reserve1.quantity.symbol;
+
+    // calculate total deposits based on reserves
+    const int64_t supply = mul_amount(pairs.liquidity.quantity.amount, MAX_PRECISION, pairs.liquidity.quantity.symbol.precision());
+    const int64_t deposit0 = mul_amount(pairs.reserve0.quantity.amount, MAX_PRECISION, sym0.precision());
+    const int64_t deposit1 = mul_amount(pairs.reserve1.quantity.amount, MAX_PRECISION, sym1.precision());
+    const int64_t deposit = deposit0 + deposit1;
+
+    // get owner order and calculate payment
+    const int64_t amount0 = mul_amount(itr->quantity0.quantity.amount, MAX_PRECISION, sym0.precision());
+    const int64_t amount1 = mul_amount(itr->quantity1.quantity.amount, MAX_PRECISION, sym1.precision());
+    const int64_t payment = amount0 + amount1;
+
+    print( "supply: " + to_string(supply) + "\n");
+    print( "deposit0: " + to_string(deposit0) + "\n");
+    print( "deposit1: " + to_string(deposit1) + "\n");
+    print( "deposit: " + to_string(deposit) + "\n");
+    print( "amount0: " + to_string(amount0) + "\n");
+    print( "amount1: " + to_string(amount1) + "\n");
+    print( "payment: " + to_string(payment) + "\n");
+
+    // _orders.erase( itr );
 }
 
 // returns any remaining orders to owner account
