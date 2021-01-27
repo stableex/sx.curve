@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# compile
-g++ -std=c++11 -o curve.t.out curve.test.cpp -I __tests__ -I ../
+cleos wallet unlock --password $(cat ~/eosio-wallet/.pass)
 
-# test
-./curve.t.out --success
+bats ./scripts/bats/system.bats
+bats ./scripts/bats/formula.bats
