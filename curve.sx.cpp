@@ -60,14 +60,15 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     auto pairs = _pairs.get( pair_id.raw(), "pair does not exist");
     auto itr = _orders.find( owner.value );
     check( itr != _orders.end(), "no deposits for this user");
+    check((pairs.reserve0.quantity.amount && pairs.reserve1.quantity.amount) || (pairs.reserve0.quantity.amount==0 && pairs.reserve0.quantity.amount==0), "invalid pair reserves");
 
     const symbol sym0 = pairs.reserve0.quantity.symbol;
     const symbol sym1 = pairs.reserve1.quantity.symbol;
 
     // calculate total deposits based on reserves
     const int64_t supply = mul_amount(pairs.liquidity.quantity.amount, MAX_PRECISION, pairs.liquidity.quantity.symbol.precision());
-    const int64_t reserve0 = mul_amount(pairs.reserve0.quantity.amount, MAX_PRECISION, sym0.precision());
-    const int64_t reserve1 = mul_amount(pairs.reserve1.quantity.amount, MAX_PRECISION, sym1.precision());
+    const int64_t reserve0 = pairs.reserve0.quantity.amount ? mul_amount(pairs.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
+    const int64_t reserve1 = pairs.reserve1.quantity.amount ? mul_amount(pairs.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
     const int64_t reserves = reserve0 + reserve1;
     const double reserve_ratio0 = double(reserve0) / reserves;
     const double reserve_ratio1 = double(reserve1) / reserves;
