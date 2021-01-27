@@ -100,6 +100,7 @@ void sx::curve::cancel( const name owner, const symbol_code pair_id )
 
     sx::curve::orders_table _orders( get_self(), pair_id.raw() );
     auto itr = _orders.find( owner.value );
+    check( itr != _orders.end(), "no deposits for this user in this pool");
     if ( itr->quantity0.quantity.amount ) transfer( get_self(), owner, itr->quantity0, "cancel");
     if ( itr->quantity1.quantity.amount ) transfer( get_self(), owner, itr->quantity1, "cancel");
 
@@ -123,8 +124,8 @@ void sx::curve::add_liquidity( const symbol_code id, const name owner, const ext
     // initialize quantities
     auto insert = [&]( auto & row ) {
         row.owner = owner;
-        row.quantity0 = { itr->quantity0.quantity.amount, ext_sym0 };
-        row.quantity1 = { itr->quantity1.quantity.amount, ext_sym1 };
+        row.quantity0 = { itr == _orders.end() ? 0 : itr->quantity0.quantity.amount, ext_sym0 };
+        row.quantity1 = { itr == _orders.end() ? 0 : itr->quantity1.quantity.amount, ext_sym1 };
 
         // add & validate deposit
         if ( ext_sym_in == ext_sym0 ) row.quantity0 += value;
