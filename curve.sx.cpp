@@ -67,19 +67,27 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     const int64_t deposit0 = mul_amount(pairs.reserve0.quantity.amount, MAX_PRECISION, sym0.precision());
     const int64_t deposit1 = mul_amount(pairs.reserve1.quantity.amount, MAX_PRECISION, sym1.precision());
     const int64_t deposit = deposit0 + deposit1;
+    const double deposit_ratio0 = double(deposit0) / deposit;
+    const double deposit_ratio1 = double(deposit1) / deposit;
 
     // get owner order and calculate payment
     const int64_t amount0 = mul_amount(itr->quantity0.quantity.amount, MAX_PRECISION, sym0.precision());
     const int64_t amount1 = mul_amount(itr->quantity1.quantity.amount, MAX_PRECISION, sym1.precision());
     const int64_t payment = amount0 + amount1;
+    const double amount_ratio0 = double(amount0) / payment;
+    const double amount_ratio1 = double(amount1) / payment;
 
     print( "supply: " + to_string(supply) + "\n");
     print( "deposit0: " + to_string(deposit0) + "\n");
     print( "deposit1: " + to_string(deposit1) + "\n");
+    print( "deposit_ratio0: " + to_string(deposit_ratio0) + "\n");
+    print( "deposit_ratio1: " + to_string(deposit_ratio1) + "\n");
     print( "deposit: " + to_string(deposit) + "\n");
     print( "amount0: " + to_string(amount0) + "\n");
     print( "amount1: " + to_string(amount1) + "\n");
     print( "payment: " + to_string(payment) + "\n");
+    print( "amount_ratio0: " + to_string(amount_ratio0) + "\n");
+    print( "amount_ratio1: " + to_string(amount_ratio1) + "\n");
 
     // _orders.erase( itr );
 }
