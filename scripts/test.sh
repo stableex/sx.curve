@@ -36,7 +36,7 @@ cleos transfer myaccount curve.sx "1000.0000 C" "AC"
 cleos push action curve.sx deposit '["myaccount", "AC"]' -p myaccount
 
 # cancel last deposit
-cleos transfer myaccount curve.sx "1000.0000 A" "AB"
+cleos transfer myaccount curve.sx "100.0000 A" "AB"
 cleos push action curve.sx cancel '["myaccount", "AB"]' -p myaccount
 
 NOCOLOR='\033[0m'

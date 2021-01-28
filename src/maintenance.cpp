@@ -32,19 +32,17 @@ void sx::curve::clear_table( T& table )
 }
 
 [[eosio::action]]
-void sx::curve::update()
+void sx::curve::update( const asset liquidity )
 {
     require_auth( get_self() );
 
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
-    auto itr = _pairs.begin();
-    while ( itr != _pairs.end() ) {
-        _pairs.modify( itr, get_self(), [&]( auto & row ) {
-            row.liquidity.contract = TOKEN_CONTRACT;
-        });
-        ++itr;
-    }
+    auto itr = _pairs.find( liquidity.symbol.code().raw() );
+    _pairs.modify( itr, get_self(), [&]( auto & row ) {
+        row.liquidity.contract = TOKEN_CONTRACT;
+        row.liquidity.quantity = liquidity;
+    });
 }
 
 [[eosio::action]]
