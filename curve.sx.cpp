@@ -193,6 +193,8 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
     const extended_asset out0 = { div_amount(amount0, MAX_PRECISION, sym0.precision()), ext_sym0 };
     const extended_asset out1 = { div_amount(amount1, MAX_PRECISION, sym1.precision()), ext_sym1 };
 
+    check(out0.quantity.amount || out1.quantity.amount, "insufficient withdraw amount");
+
     print( "\nexisting supply: ", supply, "\n");
     print( "existing reserve0: ", reserve0, "\n");
     print( "existing reserve1: ", reserve1, "\n");
