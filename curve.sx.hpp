@@ -140,10 +140,11 @@ public:
         extended_asset      reserve1;
         extended_asset      liquidity;
         uint64_t            amplifier;
+        double              virtual_price;
         double              price0_last;
         double              price1_last;
-        uint64_t            volume0;
-        uint64_t            volume1;
+        asset               volume0;
+        asset               volume1;
         time_point_sec      last_updated;
 
         uint64_t primary_key() const { return id.raw(); }
@@ -176,7 +177,7 @@ public:
     void copy();
 
     [[eosio::action]]
-    void update( const asset liquidity );
+    void update( const symbol_code pair_id );
 
     [[eosio::action]]
     void test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
