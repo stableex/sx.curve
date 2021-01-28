@@ -417,6 +417,10 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
             check(!finalize, "incoming currency/reserves contract mismatch");
             return {};
         }
+        if (reserve_in.quantity.amount == 0 || reserve_out.quantity.amount == 0) {
+            check(!finalize, "empty pool reserves");
+            return {};
+        }
 
         // calculate out
         ext_out = { get_amount_out( ext_in.quantity, pair_id ), reserve_out.contract };
