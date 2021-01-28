@@ -33,11 +33,17 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     auto itr = _pairs.find(symcode_memo.raw());
 
-    if (itr != _pairs.end()){
+    // withdraw liquidity
+    if ( _pairs.find( quantity.symbol.code().raw() ) != _pairs.end() ) {
+        withdraw_liquidity( from, ext_in );
+    // add liquidity
+    } else if (itr != _pairs.end()) {
+        // add liquidity
         check( memo == symcode_memo.to_string(), "memo should contain liquidity symbol code only");
         check( from == receiver, "receiver cannot be defined when adding liquidity" );
-        add_liquidity(symcode_memo, from, ext_in);
+        add_liquidity( from, symcode_memo, ext_in );
     }
+    // swap convert (ex: USDT => USN)
     else {
         convert(ext_in, ext_min_out, receiver);
     }
@@ -121,7 +127,6 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     // issue liquidity
     const int64_t issued_amount = rex::issue(deposit0 + deposit1, reserves, supply, 1);
     const extended_asset issued = { div_amount(issued_amount, MAX_PRECISION, pairs.liquidity.quantity.symbol.precision()), pairs.liquidity.get_extended_symbol()};
-    // issue( issued, "liquidity");
 
     print( "\nDepositing: ", ext_deposit0, " + ", ext_deposit1);
     print( "\nIssuing ", issued, " and sending to ", owner);
@@ -157,13 +162,73 @@ void sx::curve::cancel( const name owner, const symbol_code pair_id )
     _orders.erase( itr );
 }
 
-void sx::curve::add_liquidity( const symbol_code id, const name owner, const extended_asset value )
+void sx::curve::withdraw_liquidity( const name owner, const extended_asset value )
 {
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    sx::curve::orders_table _orders( get_self(), id.raw() );
+
+    // get current pairs
+    auto & pairs = _pairs.get( value.quantity.symbol.code().raw(), "pairs does not exist");
+
+    // extended symbols
+    const extended_symbol ext_sym0 = pairs.reserve0.get_extended_symbol();
+    const extended_symbol ext_sym1 = pairs.reserve1.get_extended_symbol();
+    const symbol sym0 = pairs.reserve0.quantity.symbol;
+    const symbol sym1 = pairs.reserve1.quantity.symbol;
+
+    // calculate total deposits based on reserves
+    const int64_t supply = mul_amount(pairs.liquidity.quantity.amount, MAX_PRECISION, pairs.liquidity.quantity.symbol.precision());
+    const int64_t reserve0 = pairs.reserve0.quantity.amount ? mul_amount(pairs.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
+    const int64_t reserve1 = pairs.reserve1.quantity.amount ? mul_amount(pairs.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
+    const int64_t reserves = reserve0 + reserve1;
+    const double reserve_ratio0 = double(reserve0) / reserves;
+    const double reserve_ratio1 = double(reserve1) / reserves;
+
+    // calculate withdraw amounts
+    const int64_t payment = mul_amount(value.quantity.amount, MAX_PRECISION, value.quantity.symbol.precision());
+    const int64_t retire_amount = rex::retire( payment, reserves, supply );
+
+    // // get owner order and calculate payment
+    const int64_t amount0 = retire_amount * reserve_ratio0;
+    const int64_t amount1 = retire_amount * reserve_ratio1;
+    const extended_asset out0 = { div_amount(amount0, MAX_PRECISION, sym0.precision()), ext_sym0 };
+    const extended_asset out1 = { div_amount(amount1, MAX_PRECISION, sym1.precision()), ext_sym1 };
+
+    print( "\nexisting supply: ", supply, "\n");
+    print( "existing reserve0: ", reserve0, "\n");
+    print( "existing reserve1: ", reserve1, "\n");
+    print( "reserve_ratio0: ", reserve_ratio0, "\n");
+    print( "reserve_ratio1: ", reserve_ratio1, "\n");
+    print( "reserves: ", reserves, "\n");
+    print( "payment: ", payment, "\n");
+    print( "retire_amount: ", retire_amount, "\n");
+    print( "outgoing amount0: ", amount0, "\n");
+    print( "outgoing amount1: ", amount1, "\n");
+    print( "outgoing out0: ", out0, "\n");
+    print( "outgoing out1: ", out1, "\n");
+
+    print( "\nDepositing: ", value);
+    print( "\nWithdrawing ", out0, " + ", out1, " to ", owner);
+
+    // add liquidity deposits & newly issued liquidity
+    _pairs.modify(pairs, get_self(), [&]( auto & row ) {
+        row.reserve0 -= out0;
+        row.reserve1 -= out1;
+        row.liquidity -= value;
+    });
+
+    // // issue & transfer to owner
+    retire( value, "withdraw" );
+    if ( out0.quantity.amount ) transfer( get_self(), owner, out0, "withdraw");
+    if ( out1.quantity.amount ) transfer( get_self(), owner, out1, "withdraw");
+}
+
+void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, const extended_asset value )
+{
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    sx::curve::orders_table _orders( get_self(), pair_id.raw() );
 
     // get current order & pairs
-    auto pairs = _pairs.get( id.raw(), "pairs does not exist");
+    auto pairs = _pairs.get( pair_id.raw(), "pairs does not exist");
     auto itr = _orders.find( owner.value );
 
     // extended symbols
@@ -221,7 +286,7 @@ pair<extended_asset, name> sx::curve::parse_memo(const string memo){
     name receiver;
     auto rmemo = sx::utils::split(memo, ",");
 
-    check(rmemo.size() < 3 && rmemo.size() > 0, "invalid memo format");
+    // check(rmemo.size() < 3 && rmemo.size() > 0, "invalid memo format");
     if ( rmemo.size() == 2 ) {
         receiver = sx::utils::parse_name(rmemo[1]);
         check(receiver.value, "invalid receiver name in memo");
@@ -238,7 +303,7 @@ pair<extended_asset, name> sx::curve::parse_memo(const string memo){
     if ( ext_out.contract.value ) check( is_account( ext_out.contract ), "extended asset contract account does not exist");
     if ( ext_out.quantity.is_valid()) return { ext_out, receiver };
 
-    check(false, "invalid memo");
+    // check(false, "invalid memo");
     return {};
 }
 

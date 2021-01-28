@@ -255,7 +255,8 @@ private:
     void convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver);
 
     // add liquidity {value} to pool {id} for {owner}
-    void add_liquidity( const symbol_code id, const name owner, const extended_asset value );
+    void add_liquidity( const name owner, const symbol_code pair_id, const extended_asset value );
+    void withdraw_liquidity( const name owner, const extended_asset value );
 
     // utils
     pair<extended_asset, name> parse_memo(const string memo);
