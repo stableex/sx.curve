@@ -45,6 +45,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     }
     // swap convert (ex: USDT => USN)
     else {
+        check( ext_min_out.quantity.symbol.code().raw(), "memo should contain target currency");
         convert(ext_in, ext_min_out, receiver);
     }
 
@@ -290,7 +291,7 @@ pair<extended_asset, name> sx::curve::parse_memo(const string memo){
     name receiver;
     auto rmemo = sx::utils::split(memo, ",");
 
-    // check(rmemo.size() < 3 && rmemo.size() > 0, "invalid memo format");
+    check(rmemo.size() < 3, "invalid memo format");
     if ( rmemo.size() == 2 ) {
         receiver = sx::utils::parse_name(rmemo[1]);
         check(receiver.value, "invalid receiver name in memo");
