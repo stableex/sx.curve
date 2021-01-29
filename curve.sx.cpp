@@ -256,6 +256,8 @@ void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, cons
 
 void sx::curve::convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver) {
 
+    update_amplifiers();
+
     // find all possible trade paths
     auto paths = find_trade_paths( ext_in.quantity.symbol.code(), ext_min_out.quantity.symbol.code() );
     check(paths.size(), "no path for exchange");
@@ -489,4 +491,63 @@ void sx::curve::transfer( const name from, const name to, const extended_asset v
 {
     eosio::token::transfer_action transfer( value.contract, { from, "active"_n });
     transfer.send( from, to, value.quantity, memo );
+}
+
+
+[[eosio::action]]
+void sx::curve::adjustampl( const symbol_code pair_id, uint64_t new_value, uint64_t minutes )
+{
+    require_auth( get_self() );
+
+    sx::curve::amplifier_table _ampl_table( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    auto pair = _pairs.get(pair_id.raw(), "pair does not exist");
+
+    check(minutes > 0, "minutes should be > 0");
+
+    auto insert = [&]( auto & row ) {
+        row.id = pair_id;
+        row.target_value = new_value;
+        row.start_value = pair.amplifier;
+        row.start_ts =  current_time_point();
+        row.end_ts = current_time_point() + eosio::minutes(minutes);    //replace with hours in production
+        row.last_updated = current_time_point();
+    };
+
+    auto itr = _ampl_table.find(pair_id.raw());
+    if ( itr == _ampl_table.end() ) _ampl_table.emplace( get_self(), insert );
+    else _ampl_table.modify( itr, get_self(), insert );
+}
+
+void sx::curve::update_amplifiers( )
+{
+    sx::curve::amplifier_table _ampl_table( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+
+    time_point_sec now = current_time_point();
+    auto itr = _ampl_table.begin();
+    while ( itr != _ampl_table.end() ) {
+        auto pairs_itr = _pairs.find(itr->id.raw());
+        if(pairs_itr == _pairs.end()){
+            itr = _ampl_table.erase(itr);   //orphane record, i.e. pair had been removed - just erase it
+            continue;
+        }
+
+        auto total = itr->end_ts.utc_seconds - itr->start_ts.utc_seconds;
+        auto since = now.utc_seconds - itr->start_ts.utc_seconds;
+        auto new_value =  itr->start_value + (int64_t(itr->target_value) - int64_t(itr->start_value)) * since / total;
+        if(now.utc_seconds - itr->last_updated.utc_seconds < 30) return;    //minimum update frequency in seconds
+        if(now >= itr->end_ts) new_value = itr->target_value;
+
+        _pairs.modify( pairs_itr, get_self(), [&]( auto & row ) {
+            row.amplifier = new_value;
+        });
+
+        _ampl_table.modify( itr, get_self(), [&]( auto & row ) {
+            row.last_updated = current_time_point();
+        });
+
+        if(itr->end_ts <= now) itr = _ampl_table.erase(itr);
+        else ++itr;
+    }
 }

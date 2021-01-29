@@ -151,6 +151,18 @@ public:
     };
     typedef eosio::multi_index< "backup"_n, backup_row> backup_table;
 
+    struct [[eosio::table("amplifier")]] amplifier_row {
+        symbol_code         id;
+        uint64_t            start_value;
+        uint64_t            target_value;
+        time_point_sec      start_ts;
+        time_point_sec      end_ts;
+        time_point_sec      last_updated;
+
+        uint64_t primary_key() const { return id.raw(); }
+    };
+    typedef eosio::multi_index< "amplifier"_n, amplifier_row> amplifier_table;
+
     [[eosio::action]]
     void setconfig( const std::optional<sx::curve::config_row> config );
 
@@ -165,6 +177,9 @@ public:
 
     [[eosio::on_notify("*::transfer")]]
     void on_transfer( const name from, const name to, const asset quantity, const std::string memo );
+
+    [[eosio::action]]
+    void adjustampl( const symbol_code pair_id, uint64_t new_value, uint64_t minutes );
 
     // MAINTENANCE (TESTING ONLY)
     [[eosio::action]]
@@ -272,6 +287,8 @@ private:
 
     // calculate return for trade via {path}, finalize it if {finalize}==true
     extended_asset apply_trade( const extended_asset ext_in, const vector<symbol_code>& path, bool finalize = false );
+
+    void update_amplifiers( );
 
     // maintenance
     template <typename T>
