@@ -33,17 +33,19 @@ void sx::curve::clear_table( T& table )
 }
 
 [[eosio::action]]
-void sx::curve::update( const asset liquidity )
+void sx::curve::update( const symbol_code pair_id )
 {
     require_auth( get_self() );
 
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
-    auto itr = _pairs.find( liquidity.symbol.code().raw() );
-    _pairs.modify( itr, get_self(), [&]( auto & row ) {
-        row.liquidity.contract = TOKEN_CONTRACT;
-        row.liquidity.quantity = liquidity;
-    });
+    auto itr = _pairs.find( pair_id.raw() );
+    // _pairs.modify( itr, get_self(), [&]( auto & row ) {
+    //     row.liquidity.contract = TOKEN_CONTRACT;
+    //     row.liquidity.quantity = liquidity;
+    // });
+    create( itr->liquidity.get_extended_symbol() );
+    issue( itr->liquidity, "issue" );
 }
 
 [[eosio::action]]
@@ -63,10 +65,11 @@ void sx::curve::backup()
             row.reserve1 = itr->reserve1;
             row.liquidity = itr->liquidity;
             row.amplifier = itr->amplifier;
+            row.virtual_price = itr->virtual_price;
             row.price0_last = itr->price0_last;
             row.price1_last = itr->price1_last;
-            // row.volume0 = itr->volume0;
-            // row.volume1 = itr->volume1;
+            row.volume0 = itr->volume0;
+            row.volume1 = itr->volume1;
             row.last_updated = itr->last_updated;
         });
         ++itr;
@@ -90,11 +93,11 @@ void sx::curve::copy()
             row.reserve1 = itr->reserve1;
             row.liquidity = itr->liquidity;
             row.amplifier = itr->amplifier;
-            row.virtual_price = calculate_virtual_price( itr->reserve0.quantity, itr->reserve1.quantity, itr->liquidity.quantity );
+            row.virtual_price = itr->virtual_price;
             row.price0_last = itr->price0_last;
             row.price1_last = itr->price1_last;
-            row.volume0 = { int64_t(itr->volume0), itr->reserve0.quantity.symbol };
-            row.volume1 = { int64_t(itr->volume1), itr->reserve1.quantity.symbol } ;
+            row.volume0 =itr->volume0;
+            row.volume1 =itr->volume1;
             row.last_updated = itr->last_updated;
         });
         ++itr;
