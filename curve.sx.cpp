@@ -47,6 +47,9 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     else {
         convert(ext_in, ext_min_out, receiver);
     }
+
+    // ramp up/down updates after swap/deposit is completed
+    update_amplifiers();
 }
 
 [[eosio::action]]
@@ -63,18 +66,18 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     auto config = _config.get();
 
     // get current order & pairs
-    auto & pairs = _pairs.get( pair_id.raw(), "pair does not exist");
+    auto & pair = _pairs.get( pair_id.raw(), "pair does not exist");
     auto itr = _orders.find( owner.value );
     check( itr != _orders.end(), "no deposits for this user");
-    check((pairs.reserve0.quantity.amount && pairs.reserve1.quantity.amount) || (pairs.reserve0.quantity.amount==0 && pairs.reserve0.quantity.amount==0), "invalid pair reserves");
+    check((pair.reserve0.quantity.amount && pair.reserve1.quantity.amount) || (pair.reserve0.quantity.amount==0 && pair.reserve0.quantity.amount==0), "invalid pair reserves");
 
-    const symbol sym0 = pairs.reserve0.quantity.symbol;
-    const symbol sym1 = pairs.reserve1.quantity.symbol;
+    const symbol sym0 = pair.reserve0.quantity.symbol;
+    const symbol sym1 = pair.reserve1.quantity.symbol;
 
     // calculate total deposits based on reserves
-    const int64_t supply = mul_amount(pairs.liquidity.quantity.amount, MAX_PRECISION, pairs.liquidity.quantity.symbol.precision());
-    const int64_t reserve0 = pairs.reserve0.quantity.amount ? mul_amount(pairs.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
-    const int64_t reserve1 = pairs.reserve1.quantity.amount ? mul_amount(pairs.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
+    const int64_t supply = mul_amount(pair.liquidity.quantity.amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision());
+    const int64_t reserve0 = pair.reserve0.quantity.amount ? mul_amount(pair.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
+    const int64_t reserve1 = pair.reserve1.quantity.amount ? mul_amount(pair.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
     const int64_t reserves = reserve0 + reserve1;
     const double reserve_ratio0 = double(reserve0) / reserves;
     const double reserve_ratio1 = double(reserve1) / reserves;
@@ -110,29 +113,29 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
 
     if (deposit0 < amount0) {
         const int64_t excess_amount = div_amount(amount0, MAX_PRECISION, sym0.precision()) - div_amount(deposit0, MAX_PRECISION, sym0.precision());
-        const extended_asset excess = { excess_amount, pairs.reserve0.get_extended_symbol() };
+        const extended_asset excess = { excess_amount, pair.reserve0.get_extended_symbol() };
         transfer( get_self(), owner, excess, "excess");
         print("\nSending excess ", excess, " to ", owner);
     }
     if (deposit1 < amount1) {
         const int64_t excess_amount = div_amount(amount1, MAX_PRECISION, sym1.precision()) - div_amount(deposit1, MAX_PRECISION, sym1.precision());
-        const extended_asset excess = { excess_amount, pairs.reserve1.get_extended_symbol() };
+        const extended_asset excess = { excess_amount, pair.reserve1.get_extended_symbol() };
         transfer( get_self(), owner, excess, "excess");
         print("\nSending excess ", excess, " to ", owner);
     }
 
-    const extended_asset ext_deposit0 = { div_amount(deposit0, MAX_PRECISION, sym0.precision()), pairs.reserve0.get_extended_symbol()};
-    const extended_asset ext_deposit1 = { div_amount(deposit1, MAX_PRECISION, sym1.precision()), pairs.reserve1.get_extended_symbol()};
+    const extended_asset ext_deposit0 = { div_amount(deposit0, MAX_PRECISION, sym0.precision()), pair.reserve0.get_extended_symbol()};
+    const extended_asset ext_deposit1 = { div_amount(deposit1, MAX_PRECISION, sym1.precision()), pair.reserve1.get_extended_symbol()};
 
     // issue liquidity
     const int64_t issued_amount = rex::issue(deposit0 + deposit1, reserves, supply, 1);
-    const extended_asset issued = { div_amount(issued_amount, MAX_PRECISION, pairs.liquidity.quantity.symbol.precision()), pairs.liquidity.get_extended_symbol()};
+    const extended_asset issued = { div_amount(issued_amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision()), pair.liquidity.get_extended_symbol()};
 
     print( "\nDepositing: ", ext_deposit0, " + ", ext_deposit1);
     print( "\nIssuing ", issued, " and sending to ", owner);
 
     // add liquidity deposits & newly issued liquidity
-    _pairs.modify(pairs, get_self(), [&]( auto & row ) {
+    _pairs.modify(pair, get_self(), [&]( auto & row ) {
         row.reserve0 += ext_deposit0;
         row.reserve1 += ext_deposit1;
         row.liquidity += issued;
@@ -167,18 +170,18 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
     // get current pairs
-    auto & pairs = _pairs.get( value.quantity.symbol.code().raw(), "pairs does not exist");
+    auto & pair = _pairs.get( value.quantity.symbol.code().raw(), "pairs does not exist");
 
     // extended symbols
-    const extended_symbol ext_sym0 = pairs.reserve0.get_extended_symbol();
-    const extended_symbol ext_sym1 = pairs.reserve1.get_extended_symbol();
-    const symbol sym0 = pairs.reserve0.quantity.symbol;
-    const symbol sym1 = pairs.reserve1.quantity.symbol;
+    const extended_symbol ext_sym0 = pair.reserve0.get_extended_symbol();
+    const extended_symbol ext_sym1 = pair.reserve1.get_extended_symbol();
+    const symbol sym0 = pair.reserve0.quantity.symbol;
+    const symbol sym1 = pair.reserve1.quantity.symbol;
 
     // calculate total deposits based on reserves
-    const int64_t supply = mul_amount(pairs.liquidity.quantity.amount, MAX_PRECISION, pairs.liquidity.quantity.symbol.precision());
-    const int64_t reserve0 = pairs.reserve0.quantity.amount ? mul_amount(pairs.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
-    const int64_t reserve1 = pairs.reserve1.quantity.amount ? mul_amount(pairs.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
+    const int64_t supply = mul_amount(pair.liquidity.quantity.amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision());
+    const int64_t reserve0 = pair.reserve0.quantity.amount ? mul_amount(pair.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
+    const int64_t reserve1 = pair.reserve1.quantity.amount ? mul_amount(pair.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
     const int64_t reserves = reserve0 + reserve1;
     const double reserve_ratio0 = double(reserve0) / reserves;
     const double reserve_ratio1 = double(reserve1) / reserves;
@@ -211,7 +214,7 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
     print( "\nWithdrawing ", out0, " + ", out1, " to ", owner);
 
     // add liquidity deposits & newly issued liquidity
-    _pairs.modify(pairs, get_self(), [&]( auto & row ) {
+    _pairs.modify(pair, get_self(), [&]( auto & row ) {
         row.reserve0 -= out0;
         row.reserve1 -= out1;
         row.liquidity -= value;
@@ -229,13 +232,13 @@ void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, cons
     sx::curve::orders_table _orders( get_self(), pair_id.raw() );
 
     // get current order & pairs
-    auto pairs = _pairs.get( pair_id.raw(), "pairs does not exist");
+    auto pair = _pairs.get( pair_id.raw(), "pairs does not exist");
     auto itr = _orders.find( owner.value );
 
     // extended symbols
     const extended_symbol ext_sym_in = value.get_extended_symbol();
-    const extended_symbol ext_sym0 = pairs.reserve0.get_extended_symbol();
-    const extended_symbol ext_sym1 = pairs.reserve1.get_extended_symbol();
+    const extended_symbol ext_sym0 = pair.reserve0.get_extended_symbol();
+    const extended_symbol ext_sym1 = pair.reserve1.get_extended_symbol();
 
     // initialize quantities
     auto insert = [&]( auto & row ) {
@@ -254,10 +257,8 @@ void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, cons
     else _orders.modify( itr, get_self(), insert );
 }
 
-void sx::curve::convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver) {
-
-    update_amplifiers();
-
+void sx::curve::convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver)
+{
     // find all possible trade paths
     auto paths = find_trade_paths( ext_in.quantity.symbol.code(), ext_min_out.quantity.symbol.code() );
     check(paths.size(), "no path for exchange");
@@ -267,7 +268,7 @@ void sx::curve::convert(const extended_asset ext_in, const extended_asset ext_mi
     extended_asset best_out;
     for (const auto& path: paths) {
         auto out = apply_trade(ext_in, path);
-        if(out.quantity.amount > best_out.quantity.amount) {
+        if (out.quantity.amount > best_out.quantity.amount) {
             best_path = path;
             best_out = out;
         }
@@ -469,6 +470,77 @@ double sx::curve::calculate_price( const asset value0, const asset value1 )
     return static_cast<double>(amount0) / amount1;
 }
 
+[[eosio::action]]
+void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier, const time_point_sec timestamp )
+{
+    require_auth( get_self() );
+
+    sx::curve::ramp_table _ramp_table( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    auto pair = _pairs.get(pair_id.raw(), "`pair_id` does not exist in `pairs`");
+
+    // check(minutes > 0, "minutes should be > 0");
+
+    auto insert = [&]( auto & row ) {
+        row.pair_id = pair_id;
+        row.start_amplifier = pair.amplifier;
+        row.target_amplifier = target_amplifier;
+        row.start_time = current_time_point();
+        row.end_time = timestamp;
+    };
+
+    auto itr = _ramp_table.find(pair_id.raw());
+    if ( itr == _ramp_table.end() ) _ramp_table.emplace( get_self(), insert );
+    else _ramp_table.modify( itr, get_self(), insert );
+}
+
+[[eosio::action]]
+void sx::curve::stopramp( const symbol_code pair_id )
+{
+    require_auth( get_self() );
+
+    sx::curve::ramp_table _ramp( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    auto pair = _pairs.get(pair_id.raw(), "`pair_id` does not exist in `pairs` table");
+    auto & ramp = _ramp.get(pair_id.raw(), "`pair_id` does not exist in `ramp` table");
+
+    // check(minutes > 0, "minutes should be > 0");
+
+    auto insert = [&]( auto & row ) {
+        row.pair_id = pair_id;
+        row.start_amplifier = pair.amplifier;
+        row.target_amplifier = pair.amplifier;
+        row.start_time = current_time_point();
+        row.end_time = current_time_point();
+    };
+    _ramp.modify( ramp, get_self(), insert );
+}
+
+[[eosio::action]]
+void sx::curve::setadmin( const name owner )
+{
+    check( false, "to-do");
+}
+
+void sx::curve::update_amplifiers( )
+{
+    sx::curve::ramp_table _ramp( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+
+    // update `pairs` table with active ramp up/down that are different
+    for ( const auto ramp : _ramp ) {
+        auto & pair = _pairs.get(ramp.pair_id.raw(), "sx::curve::update_amplifiers - `ramp.pair_id` does not exist in `pairs`");
+        const uint64_t amplifier = sx::curve::get_amplifier( ramp.pair_id );
+
+        // amplifier needs to be updated since different then ramp up/down
+        if ( pair.amplifier != amplifier ) {
+            _pairs.modify( pair, get_self(), [&]( auto & row ) {
+                row.amplifier = amplifier;
+            });
+        }
+    }
+}
+
 void sx::curve::create( const extended_symbol value )
 {
     eosio::token::create_action create( value.get_contract(), { value.get_contract(), "active"_n });
@@ -491,63 +563,4 @@ void sx::curve::transfer( const name from, const name to, const extended_asset v
 {
     eosio::token::transfer_action transfer( value.contract, { from, "active"_n });
     transfer.send( from, to, value.quantity, memo );
-}
-
-
-[[eosio::action]]
-void sx::curve::adjustampl( const symbol_code pair_id, uint64_t new_value, uint64_t minutes )
-{
-    require_auth( get_self() );
-
-    sx::curve::amplifier_table _ampl_table( get_self(), get_self().value );
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    auto pair = _pairs.get(pair_id.raw(), "pair does not exist");
-
-    check(minutes > 0, "minutes should be > 0");
-
-    auto insert = [&]( auto & row ) {
-        row.id = pair_id;
-        row.target_value = new_value;
-        row.start_value = pair.amplifier;
-        row.start_ts =  current_time_point();
-        row.end_ts = current_time_point() + eosio::minutes(minutes);    //replace with hours in production
-        row.last_updated = current_time_point();
-    };
-
-    auto itr = _ampl_table.find(pair_id.raw());
-    if ( itr == _ampl_table.end() ) _ampl_table.emplace( get_self(), insert );
-    else _ampl_table.modify( itr, get_self(), insert );
-}
-
-void sx::curve::update_amplifiers( )
-{
-    sx::curve::amplifier_table _ampl_table( get_self(), get_self().value );
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-
-    time_point_sec now = current_time_point();
-    auto itr = _ampl_table.begin();
-    while ( itr != _ampl_table.end() ) {
-        auto pairs_itr = _pairs.find(itr->id.raw());
-        if(pairs_itr == _pairs.end()){
-            itr = _ampl_table.erase(itr);   //orphane record, i.e. pair had been removed - just erase it
-            continue;
-        }
-
-        auto total = itr->end_ts.utc_seconds - itr->start_ts.utc_seconds;
-        auto since = now.utc_seconds - itr->start_ts.utc_seconds;
-        auto new_value =  itr->start_value + (int64_t(itr->target_value) - int64_t(itr->start_value)) * since / total;
-        if(now.utc_seconds - itr->last_updated.utc_seconds < 30) return;    //minimum update frequency in seconds
-        if(now >= itr->end_ts) new_value = itr->target_value;
-
-        _pairs.modify( pairs_itr, get_self(), [&]( auto & row ) {
-            row.amplifier = new_value;
-        });
-
-        _ampl_table.modify( itr, get_self(), [&]( auto & row ) {
-            row.last_updated = current_time_point();
-        });
-
-        if(itr->end_ts <= now) itr = _ampl_table.erase(itr);
-        else ++itr;
-    }
 }

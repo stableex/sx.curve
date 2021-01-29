@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eosio/eosio.hpp>
+#include <eosio/time.hpp>
 #include <eosio/asset.hpp>
 #include <eosio/singleton.hpp>
 #include <sx.curve/curve.hpp>
@@ -14,6 +15,7 @@ static constexpr uint8_t MAX_PRECISION = 8;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
 static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
+static constexpr uint64_t MIN_RAMP_TIME = 86400;
 
 namespace sx {
 class [[eosio::contract("curve.sx")]] curve : public eosio::contract {
@@ -163,6 +165,17 @@ public:
     };
     typedef eosio::multi_index< "amplifier"_n, amplifier_row> amplifier_table;
 
+    struct [[eosio::table("ramp")]] ramp_row {
+        symbol_code         pair_id;
+        uint64_t            start_amplifier;
+        uint64_t            target_amplifier;
+        time_point_sec      start_time;
+        time_point_sec      end_time;
+
+        uint64_t primary_key() const { return pair_id.raw(); }
+    };
+    typedef eosio::multi_index< "ramp"_n, ramp_row> ramp_table;
+
     [[eosio::action]]
     void setconfig( const std::optional<sx::curve::config_row> config );
 
@@ -178,8 +191,18 @@ public:
     [[eosio::on_notify("*::transfer")]]
     void on_transfer( const name from, const name to, const asset quantity, const std::string memo );
 
+    // @ Admin functions
     [[eosio::action]]
     void adjustampl( const symbol_code pair_id, uint64_t new_value, uint64_t minutes );
+
+    [[eosio::action]]
+    void ramp( const symbol_code pair_id, const uint64_t future_amplifier, const time_point_sec timestamp );
+
+    [[eosio::action]]
+    void stopramp( const symbol_code pair_id );
+
+    [[eosio::action]]
+    void setadmin( const name owner );
 
     // MAINTENANCE (TESTING ONLY)
     [[eosio::action]]
@@ -196,6 +219,55 @@ public:
 
     [[eosio::action]]
     void test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
+
+    /**
+     * ## STATIC `get_amplifier`
+     *
+     * Retrieve current amplifier for pair
+     *
+     * ### params
+     *
+     * - `{symbol_code} pair_id` - pair id
+     *
+     * ### returns
+     *
+     * - `{asset}` - calculated return
+     *
+     * ### example
+     *
+     * ```c++
+     * const symbol_code pair_id = symbol_code {"SXA"};
+     * const uint64_t amplifier  = sx::curve::get_amplifier( pair_id );
+     * // => 100
+     * ```
+     */
+    static uint64_t get_amplifier( const symbol_code pair_id )
+    {
+        sx::curve::ramp_table _ramp( sx::curve::code, sx::curve::code.value );
+        sx::curve::pairs_table _pairs( sx::curve::code, sx::curve::code.value );
+
+        auto pairs = _pairs.get( pair_id.raw(), "Curve.sx: invalid pair id" );
+        auto ramp = _ramp.find( pair_id.raw() );
+
+        // if no ramp exists, use pair's amplifier
+        if ( ramp == _ramp.end() ) return pairs.amplifier;
+
+        const uint32_t now = current_time_point().sec_since_epoch();
+        const uint32_t t1 = ramp->end_time.sec_since_epoch();
+        const uint64_t A1 = ramp->target_amplifier;
+
+        // ramping up or down amplifier
+        if ( now < t1 ) {
+            const uint64_t A0 = ramp->start_amplifier;
+            const uint32_t t0 = ramp->start_time.sec_since_epoch();
+
+            // ramp down if future amplifier is smaller than initial amplifier
+            if ( A1 > A0 ) return A0 + (A1 - A0) * (now - t0) / (t1 - t0);
+            else return A0 - (A0 - A1) * (now - t0) / (t1 - t0);
+
+        // ramp up has reached maximum limit
+        } else return A1;
+    }
 
     /**
      * ## STATIC `get_amount_out`
@@ -241,7 +313,7 @@ public:
         const int64_t amount_in = mul_amount( in.amount, MAX_PRECISION, precision_in );
         const int64_t reserve_in = mul_amount( pairs.reserve0.quantity.amount, MAX_PRECISION, precision_in );
         const int64_t reserve_out = mul_amount( pairs.reserve1.quantity.amount, MAX_PRECISION, precision_out );
-        const uint64_t amplifier = pairs.amplifier;
+        const uint64_t amplifier = get_amplifier( pair_id );
         const uint8_t fee = config.trade_fee + config.protocol_fee;
 
         // calculate out
@@ -287,6 +359,7 @@ private:
 
     // calculate return for trade via {path}, finalize it if {finalize}==true
     extended_asset apply_trade( const extended_asset ext_in, const vector<symbol_code>& path, bool finalize = false );
+
 
     void update_amplifiers( );
 
