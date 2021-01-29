@@ -39,7 +39,7 @@ namespace Curve {
      * // => 100110
      * ```
      */
-    static uint64_t get_amount_out( const uint64_t amount_in, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint8_t fee )
+    static uint64_t get_amount_out_old( const uint64_t amount_in, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint8_t fee )
     {
         eosio::check(amount_in > 0, "SX.Curve: INSUFFICIENT_INPUT_AMOUNT");
         eosio::check(amplifier > 0, "SX.Curve: WRONG_AMPLIFIER");
@@ -74,7 +74,7 @@ namespace Curve {
         return amount_out - fee * amount_out / 10000;
     }
 
-    static uint64_t get_amount_out2( const uint64_t amount_in, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint8_t fee )
+    static uint64_t get_amount_out( const uint64_t amount_in, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint8_t fee )
     {
         eosio::check(amount_in > 0, "SX.Curve: INSUFFICIENT_INPUT_AMOUNT");
         eosio::check(amplifier > 0, "SX.Curve: WRONG_AMPLIFIER");
