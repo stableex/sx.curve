@@ -5,9 +5,3 @@
   echo $result
   [ $result = "v2.0.8"] || [ $result = "v2.0.9" ]
 }
-
-@test "config.status = ok" {
-  result=$(cleos get table curve.sx curve.sx config | jq -r '.rows[0].status')
-  echo $result
-  [ $result = "ok" ]
-}
