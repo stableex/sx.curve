@@ -2,8 +2,8 @@
 
 cleos wallet unlock --password $(cat ~/eosio-wallet/.pass)
 
-bats ./scripts/bats/system.bats
-bats ./scripts/bats/config.bats
-bats ./scripts/bats/formula.bats
-bats ./scripts/bats/create_pairs.bats
-bats ./scripts/bats/liquidity.bats
+bats ./__tests__/system.bats
+bats ./__tests__/config.bats
+bats ./__tests__/formula.bats
+bats ./__tests__/create_pairs.bats
+bats ./__tests__/liquidity.bats
