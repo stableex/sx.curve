@@ -472,7 +472,7 @@ double sx::curve::calculate_price( const asset value0, const asset value1 )
 }
 
 [[eosio::action]]
-void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier, const time_point_sec timestamp )
+void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier, const int64_t minutes )
 {
     require_auth( get_self() );
 
@@ -480,14 +480,17 @@ void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     auto pair = _pairs.get(pair_id.raw(), "`pair_id` does not exist in `pairs`");
 
-    // check(minutes > 0, "minutes should be > 0");
+    check(minutes > 0, "minutes should be above 0");
+    // check(timestamp > current_time_point(), "timestamp must be in the future");
+    // check(timestamp.sec_since_epoch() - current_time_point().sec_since_epoch() >= MIN_RAMP_TIME, "timestamp must meet minimum ramp time requirements of " + to_string(MIN_RAMP_TIME) + " seconds");
 
     auto insert = [&]( auto & row ) {
         row.pair_id = pair_id;
         row.start_amplifier = pair.amplifier;
         row.target_amplifier = target_amplifier;
         row.start_time = current_time_point();
-        row.end_time = timestamp;
+        row.end_time = current_time_point() + eosio::minutes(minutes);
+        // row.end_time = timestamp;
     };
 
     auto itr = _ramp_table.find(pair_id.raw());

@@ -15,7 +15,7 @@ static constexpr uint8_t MAX_PRECISION = 8;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
 static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
-static constexpr uint64_t MIN_RAMP_TIME = 86400;
+static constexpr uint32_t MIN_RAMP_TIME = 86400;
 
 namespace sx {
 class [[eosio::contract("curve.sx")]] curve : public eosio::contract {
@@ -193,10 +193,7 @@ public:
 
     // @ Admin functions
     [[eosio::action]]
-    void adjustampl( const symbol_code pair_id, uint64_t new_value, uint64_t minutes );
-
-    [[eosio::action]]
-    void ramp( const symbol_code pair_id, const uint64_t future_amplifier, const time_point_sec timestamp );
+    void ramp( const symbol_code pair_id, const uint64_t target_amplifier, const int64_t minutes );
 
     [[eosio::action]]
     void stopramp( const symbol_code pair_id );

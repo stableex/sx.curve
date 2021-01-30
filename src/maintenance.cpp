@@ -7,31 +7,6 @@ void sx::curve::test( const uint64_t amount, const uint64_t reserve_in, const ui
     check(false, "see print");
 }
 
-
-[[eosio::action]]
-void sx::curve::adjustampl( const symbol_code pair_id, uint64_t target_amplifier, uint64_t minutes )
-{
-    require_auth( get_self() );
-
-    sx::curve::ramp_table _ramp( get_self(), get_self().value );
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    auto pair = _pairs.get(pair_id.raw(), "pair does not exist");
-
-    check(minutes > 0, "minutes should be > 0");
-
-    auto insert = [&]( auto & row ) {
-        row.pair_id = pair_id;
-        row.start_amplifier = pair.amplifier;
-        row.target_amplifier = target_amplifier;
-        row.start_time = current_time_point();
-        row.end_time = current_time_point() + eosio::minutes(minutes);
-    };
-
-    auto itr = _ramp.find(pair_id.raw());
-    if ( itr == _ramp.end() ) _ramp.emplace( get_self(), insert );
-    else _ramp.modify( itr, get_self(), insert );
-}
-
 [[eosio::action]]
 void sx::curve::reset( const name table )
 {

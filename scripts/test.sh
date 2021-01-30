@@ -39,6 +39,9 @@ cleos push action curve.sx deposit '["myaccount", "AC"]' -p myaccount
 cleos transfer myaccount curve.sx "100.0000 A" "AB"
 cleos push action curve.sx cancel '["myaccount", "AB"]' -p myaccount
 
+# ramp up
+cleos push action curve.sx ramp '["AB", 100, 1]' -p curve.sx
+
 NOCOLOR='\033[0m'
 RED='\033[0;31m'
 LIGHTGREEN='\033[1;32m'
