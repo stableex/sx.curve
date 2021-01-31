@@ -90,8 +90,9 @@ public:
      * - `{uint64_t} amplifier` - amplifier
      * - `{double} price0_last` - last price for reserve0
      * - `{double} price1_last` - last price for reserve1
-     * - `{uint64_t} volume0` - cumulative incoming trading volume for reserve0
-     * - `{uint64_t} volume1` - cumulative incoming trading volume for reserve1
+     * - `{asset} volume0` - cumulative incoming trading volume for reserve0
+     * - `{asset} volume1` - cumulative incoming trading volume for reserve1
+     * - `{uint64_t} trades` - cumulative trades count
      * - `{time_point_sec} last_updated` - last updated timestamp
      *
      * ### example
@@ -108,6 +109,7 @@ public:
      *   "price1_last": 1.0,
      *   "volume0": "100.0000 A",
      *   "volume1": "100.0000 B",
+     *   "trades": 123,
      *   "last_updated": "2020-11-23T00:00:00"
      * }
      * ```
@@ -123,6 +125,7 @@ public:
         double              price1_last;
         asset               volume0;
         asset               volume1;
+        uint64_t            trades;
         time_point_sec      last_updated;
 
         uint64_t primary_key() const { return id.raw(); }
@@ -152,18 +155,6 @@ public:
         uint64_t primary_key() const { return id.raw(); }
     };
     typedef eosio::multi_index< "backup"_n, backup_row> backup_table;
-
-    struct [[eosio::table("amplifier")]] amplifier_row {
-        symbol_code         id;
-        uint64_t            start_value;
-        uint64_t            target_value;
-        time_point_sec      start_ts;
-        time_point_sec      end_ts;
-        time_point_sec      last_updated;
-
-        uint64_t primary_key() const { return id.raw(); }
-    };
-    typedef eosio::multi_index< "amplifier"_n, amplifier_row> amplifier_table;
 
     struct [[eosio::table("ramp")]] ramp_row {
         symbol_code         pair_id;
@@ -197,9 +188,6 @@ public:
 
     [[eosio::action]]
     void stopramp( const symbol_code pair_id );
-
-    [[eosio::action]]
-    void setadmin( const name owner );
 
     // MAINTENANCE (TESTING ONLY)
     [[eosio::action]]

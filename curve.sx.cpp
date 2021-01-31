@@ -19,10 +19,11 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
 
     // config
     sx::curve::config_table _config( get_self(), get_self().value );
-    check( _config.exists(), "contract is under maintenance");
+    const name status = _config.get().status;
+    check( _config.exists() && (status == "ok"_n || status == "testing"_n), "contract is under maintenance");
 
     // TEMP - DURING TESTING PERIOD
-    check( from.suffix() == "sx"_n || from == "myaccount"_n, "account must be *.sx during testing period");
+    if ( status == "testing"_n ) check( from.suffix() == "sx"_n, "account must be *.sx during testing period");
 
     // user input params
     auto [ ext_min_out, receiver ] = parse_memo(memo);
@@ -447,6 +448,7 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
                 row.virtual_price = calculate_virtual_price( row.reserve0.quantity, row.reserve1.quantity, row.liquidity.quantity );
                 row.price0_last = is_in ? 1 / price : price;
                 row.price1_last = is_in ? price : 1 / price;
+                row.trades += 1;
                 row.last_updated = current_time_point();
             });
         }
@@ -504,26 +506,8 @@ void sx::curve::stopramp( const symbol_code pair_id )
     require_auth( get_self() );
 
     sx::curve::ramp_table _ramp( get_self(), get_self().value );
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    auto pair = _pairs.get(pair_id.raw(), "`pair_id` does not exist in `pairs` table");
     auto & ramp = _ramp.get(pair_id.raw(), "`pair_id` does not exist in `ramp` table");
-
-    // check(minutes > 0, "minutes should be > 0");
-
-    auto insert = [&]( auto & row ) {
-        row.pair_id = pair_id;
-        row.start_amplifier = pair.amplifier;
-        row.target_amplifier = pair.amplifier;
-        row.start_time = current_time_point();
-        row.end_time = current_time_point();
-    };
-    _ramp.modify( ramp, get_self(), insert );
-}
-
-[[eosio::action]]
-void sx::curve::setadmin( const name owner )
-{
-    check( false, "to-do");
+    _ramp.erase( ramp );
 }
 
 void sx::curve::update_amplifiers( )
