@@ -14,7 +14,7 @@
     decimals=$(($RANDOM % 10000))
     if [[ "$curr1" = "C" ]]
     then
-      decimals=$(($RANDOM % 10000))88$(($RANDOM % 10000))
+      decimals=$(($RANDOM % 10000))8$(($RANDOM % 10000))
     fi
     curr2=$curr1
     until [ $curr2 != $curr1 ]
@@ -30,11 +30,11 @@
   run cleos transfer myaccount curve.sx "$ac_balance" "" --contract lptoken.sx
   [ $status -eq 0 ]
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].liquidity.quantity')
-  [ "$result" = "0.0000000000 AC" ]
+  [ "$result" = "0.000000000 AC" ]
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].reserve0.quantity')
   [ "$result" = "0.0000 A" ]
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].reserve1.quantity')
-  [ "$result" = "0.0000000000 C" ]
+  [ "$result" = "0.000000000 C" ]
 
   run cleos transfer myaccount curve.sx "$ab_balance" "" --contract lptoken.sx
   [ $status -eq 0 ]
@@ -48,9 +48,9 @@
   run cleos transfer myaccount curve.sx "$bc_balance" "" --contract lptoken.sx
   [ $status -eq 0 ]
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[2].liquidity.quantity')
-  [ "$result" = "0.0000000000 BC" ]
+  [ "$result" = "0.000000000 BC" ]
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[2].reserve0.quantity')
   [ "$result" = "0.0000 B" ]
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[2].reserve1.quantity')
-  [ "$result" = "0.0000000000 C" ]
+  [ "$result" = "0.000000000 C" ]
 }

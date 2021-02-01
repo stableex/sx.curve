@@ -11,7 +11,7 @@
 using namespace eosio;
 using namespace std;
 
-static constexpr uint8_t MAX_PRECISION = 8;
+static constexpr uint8_t MAX_PRECISION = 9;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
 static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;

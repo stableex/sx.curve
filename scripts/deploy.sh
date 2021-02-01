@@ -26,8 +26,8 @@ cleos push action eosio.token create '["eosio", "100000000.0000 A"]' -p eosio.to
 cleos push action eosio.token issue '["eosio", "5000000.0000 A", "init"]' -p eosio
 cleos push action eosio.token create '["eosio", "100000000.0000 B"]' -p eosio.token
 cleos push action eosio.token issue '["eosio", "5000000.0000 B", "init"]' -p eosio
-cleos push action eosio.token create '["eosio", "100000000.0000000000 C"]' -p eosio.token
-cleos push action eosio.token issue '["eosio", "5000000.0000000000 C", "init"]' -p eosio
+cleos push action eosio.token create '["eosio", "100000000.000000000 C"]' -p eosio.token
+cleos push action eosio.token issue '["eosio", "5000000.000000000 C", "init"]' -p eosio
 
 # create fake tokens
 cleos push action fake.token create '["eosio", "100000000.0000 A"]' -p fake.token
@@ -36,8 +36,8 @@ cleos push action fake.token issue '["eosio", "5000000.0000 A", "init"]' -p eosi
 # transfer tokens
 cleos transfer eosio curve.sx "1000.0000 B" "curve.sx"
 cleos transfer eosio curve.sx "1000.0000 A" "curve.sx"
-cleos transfer eosio curve.sx "1000.0000000000 C" "curve.sx"
+cleos transfer eosio curve.sx "1000.000000000 C" "curve.sx"
 cleos transfer eosio myaccount "10000.0000 B" ""
 cleos transfer eosio myaccount "10000.0000 A" ""
 cleos transfer eosio myaccount "10000.0000 A" "" --contract fake.token
-cleos transfer eosio myaccount "10000.0000000000 C" ""
+cleos transfer eosio myaccount "10000.000000000 C" ""
