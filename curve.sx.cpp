@@ -205,8 +205,12 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
     const int64_t retire_amount = rex::retire( payment, reserves, supply );
 
     // // get owner order and calculate payment
-    const int64_t amount0 = retire_amount * reserve_ratio0;
-    const int64_t amount1 = retire_amount * reserve_ratio1;
+    int64_t amount0 = retire_amount * reserve_ratio0;
+    int64_t amount1 = retire_amount * reserve_ratio1;
+    if(amount0 == reserve0 || amount1 == reserve1){         //deal with rounding error on final withdrawal
+        amount0 = reserve0;
+        amount1 = reserve1;
+    }
     const extended_asset out0 = { div_amount(amount0, MAX_PRECISION, sym0.precision()), ext_sym0 };
     const extended_asset out1 = { div_amount(amount1, MAX_PRECISION, sym1.precision()), ext_sym1 };
     check( out0.quantity.amount || out1.quantity.amount, "withdraw amount too small");
