@@ -173,7 +173,7 @@ void sx::curve::removepair( const symbol_code pair_id )
 {
     has_auth( get_self() );
 
-    sx::curve::pairs_table _pairs( get_self(), pair_id.raw() );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
     auto & pair = _pairs.get( pair_id.raw(), "pairs does not exist");
     check( !pair.liquidity.quantity.amount, "liquidity must be empty before removing");
     _pairs.erase( pair );
@@ -377,7 +377,15 @@ void sx::curve::createpair( const name creator, const symbol_code pair_id, const
 
     // create liquidity token
     const extended_symbol liquidity = {{ pair_id, max(sym0.precision(), sym1.precision())}, TOKEN_CONTRACT };
-    create( liquidity );
+
+    // in case supply already exists
+    token::stats _stats( TOKEN_CONTRACT, pair_id.raw() );
+    auto stats_itr = _stats.find( pair_id.raw() );
+
+    // create token if supply does not exist
+    if ( stats_itr == _stats.end() ) create( liquidity );
+    // supply must be empty
+    else check( !stats_itr->supply.amount, "`createpair` requires zero existing supply" );
 
     // create pair
     _pairs.emplace( get_self(), [&]( auto & row ) {
