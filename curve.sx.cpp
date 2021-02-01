@@ -73,6 +73,7 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     auto itr = _orders.find( owner.value );
     check( itr != _orders.end(), "no deposits for this user");
     check((pair.reserve0.quantity.amount && pair.reserve1.quantity.amount) || (pair.reserve0.quantity.amount==0 && pair.reserve0.quantity.amount==0), "invalid pair reserves");
+    check(itr->quantity0.quantity.amount && itr->quantity1.quantity.amount, "one of the currencies not provided");
 
     const symbol sym0 = pair.reserve0.quantity.symbol;
     const symbol sym1 = pair.reserve1.quantity.symbol;

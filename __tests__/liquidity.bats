@@ -85,21 +85,41 @@ load bats.global.bash
   [ $status -eq 0 ]
 
   run cleos transfer liquidity.sx curve.sx "1000.0000 A" "ABB"
+  [[ "$output" =~ "no path for exchange" ]]
   [ $status -eq 1 ]
 
   run cleos push action curve.sx deposit '["liquidity.sx", "AC"]' -p liquidity.sx
+  echo "$output"
+  [[ "$output" =~ "one of the currencies not provided" ]]
+  [ $status -eq 1 ]
+
+  run cleos push action curve.sx deposit '["myaccount", "AC"]' -p myaccount
+  echo "$output"
+  [[ "$output" =~ "no deposits for this user" ]]
+  [ $status -eq 1 ]
+
+  run cleos transfer myaccount curve.sx "100.0000 B" "AC"
+  echo "$output"
+  [[ "$output" =~ "invalid extended symbol when adding liquidity" ]]
+  [ $status -eq 1 ]
+
+  run cleos transfer myaccount curve.sx "1000.0000 A" "AB" --contract fake.token
+  echo "$output"
+  [[ "$output" =~ "invalid extended symbol when adding liquidity" ]]
   [ $status -eq 1 ]
 
   run cleos push action curve.sx deposit '["liquidity.sx", "BC"]' -p liquidity.sx
-  [ $status -eq 1 ]
-
-  run cleos push action curve.sx deposit '["liquidity.sx", "AC"]' -p liquidity.sx
+  echo "$output"
+  [[ "$output" =~ "no deposits for this user" ]]
   [ $status -eq 1 ]
 
   run cleos push action curve.sx cancel '["liquidity.sx", "AB"]' -p liquidity.sx
+  echo "$output"
+  [[ "$output" =~ "no deposits for this user in this pool" ]]
   [ $status -eq 1 ]
 
   run cleos push action curve.sx cancel '["liquidity.sx", "AC"]' -p liquidity.sx
+  [ $status -eq 0 ]
 
   a_new_balance=$(cleos get currency balance eosio.token liquidity.sx A)
   [ "$a_balance" = "$a_new_balance" ]
