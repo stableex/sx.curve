@@ -28,7 +28,7 @@ public:
     /**
      * ## TABLE `config`
      *
-     * - `{name} status` - contract status ("ok", "paused")
+     * - `{name} status` - contract status ("ok", "testing", "maintenance")
      * - `{uint8_t} trading_fee` - trading fee (pips 1/100 of 1%)
      * - `{uint8_t} protocol_fee` - protocol fee (pips 1/100 of 1%)
      * - `{name} fee_account` - transfer protocol fees to account
@@ -45,7 +45,7 @@ public:
      * ```
      */
     struct [[eosio::table("config")]] config_row {
-        name                status = "ok"_n;
+        name                status = "testing"_n;
         uint8_t             trade_fee = 4;
         uint8_t             protocol_fee = 0;
         name                fee_account = "fee.sx"_n;
@@ -90,8 +90,9 @@ public:
      * - `{uint64_t} amplifier` - amplifier
      * - `{double} price0_last` - last price for reserve0
      * - `{double} price1_last` - last price for reserve1
-     * - `{uint64_t} volume0` - cumulative incoming trading volume for reserve0
-     * - `{uint64_t} volume1` - cumulative incoming trading volume for reserve1
+     * - `{asset} volume0` - cumulative incoming trading volume for reserve0
+     * - `{asset} volume1` - cumulative incoming trading volume for reserve1
+     * - `{uint64_t} trades` - cumulative trades count
      * - `{time_point_sec} last_updated` - last updated timestamp
      *
      * ### example
@@ -108,6 +109,7 @@ public:
      *   "price1_last": 1.0,
      *   "volume0": "100.0000 A",
      *   "volume1": "100.0000 B",
+     *   "trades": 123,
      *   "last_updated": "2020-11-23T00:00:00"
      * }
      * ```
@@ -123,6 +125,7 @@ public:
         double              price1_last;
         asset               volume0;
         asset               volume1;
+        uint64_t            trades;
         time_point_sec      last_updated;
 
         uint64_t primary_key() const { return id.raw(); }
@@ -153,18 +156,6 @@ public:
     };
     typedef eosio::multi_index< "backup"_n, backup_row> backup_table;
 
-    struct [[eosio::table("amplifier")]] amplifier_row {
-        symbol_code         id;
-        uint64_t            start_value;
-        uint64_t            target_value;
-        time_point_sec      start_ts;
-        time_point_sec      end_ts;
-        time_point_sec      last_updated;
-
-        uint64_t primary_key() const { return id.raw(); }
-    };
-    typedef eosio::multi_index< "amplifier"_n, amplifier_row> amplifier_table;
-
     struct [[eosio::table("ramp")]] ramp_row {
         symbol_code         pair_id;
         uint64_t            start_amplifier;
@@ -183,6 +174,9 @@ public:
     void createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier );
 
     [[eosio::action]]
+    void removepair( const symbol_code pair_id );
+
+    [[eosio::action]]
     void deposit( const name owner, const symbol_code pair_id );
 
     [[eosio::action]]
@@ -197,9 +191,6 @@ public:
 
     [[eosio::action]]
     void stopramp( const symbol_code pair_id );
-
-    [[eosio::action]]
-    void setadmin( const name owner );
 
     // MAINTENANCE (TESTING ONLY)
     [[eosio::action]]

@@ -19,10 +19,12 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
 
     // config
     sx::curve::config_table _config( get_self(), get_self().value );
-    check( _config.exists(), "contract is under maintenance");
+    check( _config.exists(), "contract must first be initialized");
+    const name status = _config.get_or_default().status;
+    check( (status == "ok"_n || status == "testing"_n), "contract is under maintenance");
 
     // TEMP - DURING TESTING PERIOD
-    check( from.suffix() == "sx"_n || from == "myaccount"_n, "account must be *.sx during testing period");
+    if ( status == "testing"_n ) check( from.suffix() == "sx"_n, "account must be *.sx during testing period");
 
     // user input params
     auto [ ext_min_out, receiver ] = parse_memo(memo);
@@ -166,6 +168,17 @@ void sx::curve::cancel( const name owner, const symbol_code pair_id )
     _orders.erase( itr );
 }
 
+[[eosio::action]]
+void sx::curve::removepair( const symbol_code pair_id )
+{
+    has_auth( get_self() );
+
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    auto & pair = _pairs.get( pair_id.raw(), "pairs does not exist");
+    check( !pair.liquidity.quantity.amount, "liquidity must be empty before removing");
+    _pairs.erase( pair );
+}
+
 void sx::curve::withdraw_liquidity( const name owner, const extended_asset value )
 {
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
@@ -196,7 +209,7 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
     const int64_t amount1 = retire_amount * reserve_ratio1;
     const extended_asset out0 = { div_amount(amount0, MAX_PRECISION, sym0.precision()), ext_sym0 };
     const extended_asset out1 = { div_amount(amount1, MAX_PRECISION, sym1.precision()), ext_sym1 };
-    check( out0.quantity.amount && out1.quantity.amount, "withdraw amount too small");
+    check( out0.quantity.amount || out1.quantity.amount, "withdraw amount too small");
 
     print( "\nexisting supply: ", supply, "\n");
     print( "existing reserve0: ", reserve0, "\n");
@@ -223,8 +236,8 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
 
     // issue & transfer to owner
     retire( value, "withdraw" );
-    transfer( get_self(), owner, out0, "withdraw");
-    transfer( get_self(), owner, out1, "withdraw");
+    if ( out0.quantity.amount ) transfer( get_self(), owner, out0, "withdraw");
+    if ( out1.quantity.amount ) transfer( get_self(), owner, out1, "withdraw");
 }
 
 void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, const extended_asset value )
@@ -364,7 +377,15 @@ void sx::curve::createpair( const name creator, const symbol_code pair_id, const
 
     // create liquidity token
     const extended_symbol liquidity = {{ pair_id, max(sym0.precision(), sym1.precision())}, TOKEN_CONTRACT };
-    create( liquidity );
+
+    // in case supply already exists
+    token::stats _stats( TOKEN_CONTRACT, pair_id.raw() );
+    auto stats_itr = _stats.find( pair_id.raw() );
+
+    // create token if supply does not exist
+    if ( stats_itr == _stats.end() ) create( liquidity );
+    // supply must be empty
+    else check( !stats_itr->supply.amount, "`createpair` requires zero existing supply" );
 
     // create pair
     _pairs.emplace( get_self(), [&]( auto & row ) {
@@ -447,6 +468,7 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
                 row.virtual_price = calculate_virtual_price( row.reserve0.quantity, row.reserve1.quantity, row.liquidity.quantity );
                 row.price0_last = is_in ? 1 / price : price;
                 row.price1_last = is_in ? price : 1 / price;
+                row.trades += 1;
                 row.last_updated = current_time_point();
             });
         }
@@ -504,26 +526,8 @@ void sx::curve::stopramp( const symbol_code pair_id )
     require_auth( get_self() );
 
     sx::curve::ramp_table _ramp( get_self(), get_self().value );
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    auto pair = _pairs.get(pair_id.raw(), "`pair_id` does not exist in `pairs` table");
     auto & ramp = _ramp.get(pair_id.raw(), "`pair_id` does not exist in `ramp` table");
-
-    // check(minutes > 0, "minutes should be > 0");
-
-    auto insert = [&]( auto & row ) {
-        row.pair_id = pair_id;
-        row.start_amplifier = pair.amplifier;
-        row.target_amplifier = pair.amplifier;
-        row.start_time = current_time_point();
-        row.end_time = current_time_point();
-    };
-    _ramp.modify( ramp, get_self(), insert );
-}
-
-[[eosio::action]]
-void sx::curve::setadmin( const name owner )
-{
-    check( false, "to-do");
+    _ramp.erase( ramp );
 }
 
 void sx::curve::update_amplifiers( )

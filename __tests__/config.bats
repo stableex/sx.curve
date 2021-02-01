@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
 
-@test "maintenance" {
+@test "initialized" {
   run cleos transfer myaccount curve.sx "1000.0000 A" ""
   echo "Output: $output"
   [ $status -eq 1 ]
-  [[ "$output" =~ "maintenance" ]]
+  [[ "$output" =~ "initialized" ]]
 }
 
 @test "set config" {
