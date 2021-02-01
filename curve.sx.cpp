@@ -19,8 +19,9 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
 
     // config
     sx::curve::config_table _config( get_self(), get_self().value );
-    const name status = _config.get().status;
-    check( _config.exists() && (status == "ok"_n || status == "testing"_n), "contract is under maintenance");
+    check( _config.exists(), "contract must first be initialized");
+    const name status = _config.get_or_default().status;
+    check( (status == "ok"_n || status == "testing"_n), "contract is under maintenance");
 
     // TEMP - DURING TESTING PERIOD
     if ( status == "testing"_n ) check( from.suffix() == "sx"_n, "account must be *.sx during testing period");
@@ -167,6 +168,17 @@ void sx::curve::cancel( const name owner, const symbol_code pair_id )
     _orders.erase( itr );
 }
 
+[[eosio::action]]
+void sx::curve::removepair( const symbol_code pair_id )
+{
+    has_auth( get_self() );
+
+    sx::curve::pairs_table _pairs( get_self(), pair_id.raw() );
+    auto & pair = _pairs.get( pair_id.raw(), "pairs does not exist");
+    check( !pair.liquidity.quantity.amount, "liquidity must be empty before removing");
+    _pairs.erase( pair );
+}
+
 void sx::curve::withdraw_liquidity( const name owner, const extended_asset value )
 {
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
@@ -197,7 +209,7 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
     const int64_t amount1 = retire_amount * reserve_ratio1;
     const extended_asset out0 = { div_amount(amount0, MAX_PRECISION, sym0.precision()), ext_sym0 };
     const extended_asset out1 = { div_amount(amount1, MAX_PRECISION, sym1.precision()), ext_sym1 };
-    check( out0.quantity.amount && out1.quantity.amount, "withdraw amount too small");
+    check( out0.quantity.amount || out1.quantity.amount, "withdraw amount too small");
 
     print( "\nexisting supply: ", supply, "\n");
     print( "existing reserve0: ", reserve0, "\n");
@@ -224,8 +236,8 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
 
     // issue & transfer to owner
     retire( value, "withdraw" );
-    transfer( get_self(), owner, out0, "withdraw");
-    transfer( get_self(), owner, out1, "withdraw");
+    if ( out0.quantity.amount ) transfer( get_self(), owner, out0, "withdraw");
+    if ( out1.quantity.amount ) transfer( get_self(), owner, out1, "withdraw");
 }
 
 void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, const extended_asset value )

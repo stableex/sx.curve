@@ -28,7 +28,7 @@ public:
     /**
      * ## TABLE `config`
      *
-     * - `{name} status` - contract status ("ok", "paused")
+     * - `{name} status` - contract status ("ok", "testing", "maintenance")
      * - `{uint8_t} trading_fee` - trading fee (pips 1/100 of 1%)
      * - `{uint8_t} protocol_fee` - protocol fee (pips 1/100 of 1%)
      * - `{name} fee_account` - transfer protocol fees to account
@@ -45,7 +45,7 @@ public:
      * ```
      */
     struct [[eosio::table("config")]] config_row {
-        name                status = "ok"_n;
+        name                status = "testing"_n;
         uint8_t             trade_fee = 4;
         uint8_t             protocol_fee = 0;
         name                fee_account = "fee.sx"_n;
@@ -172,6 +172,9 @@ public:
 
     [[eosio::action]]
     void createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier );
+
+    [[eosio::action]]
+    void removepair( const symbol_code pair_id );
 
     [[eosio::action]]
     void deposit( const name owner, const symbol_code pair_id );
