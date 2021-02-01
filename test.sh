@@ -7,3 +7,4 @@ bats ./__tests__/config.bats
 bats ./__tests__/formula.bats
 bats ./__tests__/create_pairs.bats
 bats ./__tests__/liquidity.bats
+bats ./__tests__/swaps.bats

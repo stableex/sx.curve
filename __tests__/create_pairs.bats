@@ -16,7 +16,7 @@
 }
 
 @test "create AC" {
-  run cleos push action curve.sx createpair '["curve.sx", "AC", ["4,A", "eosio.token"], ["8,C", "eosio.token"], 200]' -p curve.sx
+  run cleos push action curve.sx createpair '["curve.sx", "AC", ["4,A", "eosio.token"], ["10,C", "eosio.token"], 200]' -p curve.sx
   echo "Output: $output"
   [ $status -eq 0 ]
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].id')
@@ -25,7 +25,7 @@
 }
 
 @test "create BC" {
-  run cleos push action curve.sx createpair '["curve.sx", "BC", ["4,B", "eosio.token"], ["8,C", "eosio.token"], 100]' -p curve.sx
+  run cleos push action curve.sx createpair '["curve.sx", "BC", ["4,B", "eosio.token"], ["10,C", "eosio.token"], 100]' -p curve.sx
   echo "Output: $output"
   [ $status -eq 0 ]
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[2].id')
