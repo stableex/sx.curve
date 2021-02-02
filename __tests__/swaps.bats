@@ -112,3 +112,24 @@ load bats.global.bash
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[2].reserve1.quantity')
   [ "$result" = "0.000000000 C" ]
 }
+
+
+@test "remove pairs" {
+
+  run cleos push action curve.sx removepair '["AB"]' -p curve.sx
+  echo "Output: $output"
+  [ $status -eq 0 ]
+
+  run cleos push action curve.sx removepair '["AC"]' -p curve.sx
+  echo "Output: $output"
+  [ $status -eq 0 ]
+
+  run cleos push action curve.sx removepair '["BC"]' -p curve.sx
+  echo "Output: $output"
+  [ $status -eq 0 ]
+
+  run cleos push action curve.sx removepair '["AD"]' -p curve.sx
+  echo "Output: $output"
+  [[ "$output" =~ "does not exist" ]]
+  [ $status -eq 1 ]
+}
