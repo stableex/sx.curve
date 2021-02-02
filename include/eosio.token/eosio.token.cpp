@@ -155,4 +155,14 @@ void token::close( const name& owner, const symbol& symbol )
     acnts.erase( it );
 }
 
+void token::closesupply( const symbol_code symcode )
+{
+    require_auth( get_self() );
+
+    stats _stats( get_self(), symcode.raw() );
+    auto & stats = _stats.get( symcode.raw(), "symcode supply does not exist" );
+    check( stats.supply.amount == 0, "supply must be zero" );
+    _stats.erase( stats );
+}
+
 } /// namespace eosio
