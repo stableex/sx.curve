@@ -541,15 +541,21 @@ void sx::curve::update_amplifiers( )
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
     // update `pairs` table with active ramp up/down that are different
-    for ( const auto ramp : _ramp ) {
-        auto & pair = _pairs.get(ramp.pair_id.raw(), "sx::curve::update_amplifiers - `ramp.pair_id` does not exist in `pairs`");
-        const uint64_t amplifier = sx::curve::get_amplifier( ramp.pair_id );
-
-        // amplifier needs to be updated since different then ramp up/down
-        if ( pair.amplifier != amplifier ) {
-            _pairs.modify( pair, get_self(), [&]( auto & row ) {
-                row.amplifier = amplifier;
-            });
+    auto ramp_itr = _ramp.begin();
+    while ( ramp_itr != _ramp.end() ) {
+        auto pair_itr = _pairs.find(ramp_itr->pair_id.raw());
+        if( pair_itr == _pairs.end()){          //pair not in pairs table - probably deleted, so erase ramp iterator
+            ramp_itr = _ramp.erase(ramp_itr);
+        }
+        else {
+            const uint64_t amplifier = sx::curve::get_amplifier( ramp_itr->pair_id );
+            // amplifier needs to be updated since different then ramp up/down
+            if ( pair_itr->amplifier != amplifier ) {
+                _pairs.modify( pair_itr, get_self(), [&]( auto & row ) {
+                    row.amplifier = amplifier;
+                });
+            }
+            ++ramp_itr;
         }
     }
 }
