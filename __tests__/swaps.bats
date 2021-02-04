@@ -1,7 +1,7 @@
 
 #!/usr/bin/env bats
 
-load bats.global.bash
+load bats.global
 
 @test "invalid transfers" {
   run cleos transfer myaccount curve.sx "100.0000 A" ""

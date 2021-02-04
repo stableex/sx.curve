@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-load bats.global.bash
+load bats.global
 
 @test "deposit AB" {
   run cleos transfer liquidity.sx curve.sx "$((AB_LIQ)).0000 A" "AB"
