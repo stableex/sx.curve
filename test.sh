@@ -8,3 +8,4 @@ bats ./__tests__/formula.bats
 bats ./__tests__/create_pairs.bats
 bats ./__tests__/liquidity.bats
 bats ./__tests__/swaps.bats
+bats ./__tests__/withdraw.bats

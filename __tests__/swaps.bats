@@ -3,59 +3,125 @@
 
 load bats.global.bash
 
+@test "sample swaps" {
+  a_balance=$(cleos get currency balance eosio.token myaccount A)
+  b_balance=$(cleos get currency balance eosio.token myaccount B)
+  c_balance=$(cleos get currency balance eosio.token myaccount C)
+  [ "$a_balance" = "1000000.0000 A" ]
+  [ "$b_balance" = "1000000.0000 B" ]
+  [ "$c_balance" = "1000000.000000000 C" ]
+
+  run cleos transfer myaccount curve.sx "100.0000 A" "B"
+  [ $status -eq 0 ]
+  [[ "$output" =~ "99.9594 B" ]]
+
+  run cleos transfer myaccount curve.sx "10000.0000 A" "B"
+  [ $status -eq 0 ]
+  [[ "$output" =~ "9989.9337 B" ]]
+
+  run cleos transfer myaccount curve.sx "1000.0000 A" "B"
+  echo "status: $output"
+  [ $status -eq 0 ]
+  [[ "$output" =~ "999.0018 B" ]]
+}
+
 @test "invalid transfers" {
   run cleos transfer myaccount curve.sx "100.0000 A" ""
   echo "$output"
   [[ "$output" =~ "memo should contain target currency" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 A" "BA"
   echo "$output"
   [[ "$output" =~ "no path for exchange" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A@curve.sx"
   echo "$output"
   [[ "$output" =~ "reserve_out vs memo contract mismatch" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 B" "90 A@eosio.token"
   echo "$output"
   [[ "$output" =~ "return vs memo symbol precision mismatch" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 A" "10 B"
   echo "$output"
   [[ "$output" =~ "return vs memo symbol precision mismatch" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 B" "120.0000 A"
   echo "$output"
   [[ "$output" =~ "return is not enough" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 A" "90.000000 C@eosio.token"
   echo "$output"
   [[ "$output" =~ "return vs memo symbol precision mismatch" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A,BadUserName"
   echo "$output"
   [[ "$output" =~ "invalid receiver name in memo" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A, myaccount"
   echo "$output"
   [[ "$output" =~ "invalid receiver name in memo" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A,myaccount,liquidity.sx"
   echo "$output"
   [[ "$output" =~ "invalid memo format" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 A" "AC,curve.sx"
   echo "$output"
   [[ "$output" =~ "memo should contain liquidity symbol code only" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 A" "AC,nonexistuser"
   echo "$output"
   [[ "$output" =~ "receiver account does not exist" ]]
   [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 A" "B" --contract fake.token
   echo "$output"
   [[ "$output" =~ "no matching exchange" ]]
   [ $status -eq 1 ]
+}
+
+
+@test "valid transfers" {
+  run cleos transfer myaccount curve.sx "100.0000 A" "B"
+  echo "$output"
+  [ $status -eq 0 ]
+
+  run cleos transfer myaccount curve.sx "100.0000 B" "A"
+  echo "$output"
+  [ $status -eq 0 ]
+
+  run cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A"
+  echo "$output"
+  [ $status -eq 0 ]
+
+  run cleos transfer myaccount curve.sx "100.0000 A" "90.0000 B@eosio.token"
+  echo "$output"
+  [ $status -eq 0 ]
+
+  run cleos transfer myaccount curve.sx "100.0000 A" "90.000000000 C@eosio.token"
+  echo "$output"
+  [ $status -eq 0 ]
+
+  run cleos transfer myaccount curve.sx "100.00000000 C" "90.0000 A"
+  echo "$output"
+  [ $status -eq 0 ]
+
+  run cleos transfer myaccount curve.sx "100.0000 C" "A,myaccount2"
+  echo "$output"
+  [ $status -eq 0 ]
+  [[ "$output" =~ "\"to\":\"myaccount2\"" ]]
 }
 
 @test "swap with protocol fee" {
@@ -82,12 +148,8 @@ load bats.global.bash
 }
 
 
-@test "100 random swaps and withdraw all" {
+@test "100 random swaps" {
   symbols="ABC"
-  ac_balance=$(cleos get currency balance lptoken.sx liquidity.sx AC)
-  ab_balance=$(cleos get currency balance lptoken.sx liquidity.sx AB)
-  bc_balance=$(cleos get currency balance lptoken.sx liquidity.sx BC)
-
   for i in {0..100}
   do
     rnd=$((RANDOM % 10000))
@@ -108,51 +170,5 @@ load bats.global.bash
     [ $status -eq 0 ]
   done
 
-  run cleos transfer liquidity.sx curve.sx "$ac_balance" "" --contract lptoken.sx
-  [ $status -eq 0 ]
-  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].liquidity.quantity')
-  [ "$result" = "0.000000000 AC" ]
-  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].reserve0.quantity')
-  [ "$result" = "0.0000 A" ]
-  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].reserve1.quantity')
-  [ "$result" = "0.000000000 C" ]
-
-  run cleos transfer liquidity.sx curve.sx "$ab_balance" "" --contract lptoken.sx
-  [ $status -eq 0 ]
-  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[0].liquidity.quantity')
-  [ "$result" = "0.0000 AB" ]
-  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[0].reserve0.quantity')
-  [ "$result" = "0.0000 A" ]
-  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[0].reserve1.quantity')
-  [ "$result" = "0.0000 B" ]
-
-  run cleos transfer liquidity.sx curve.sx "$bc_balance" "" --contract lptoken.sx
-  [ $status -eq 0 ]
-  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[2].liquidity.quantity')
-  [ "$result" = "0.000000000 BC" ]
-  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[2].reserve0.quantity')
-  [ "$result" = "0.0000 B" ]
-  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[2].reserve1.quantity')
-  [ "$result" = "0.000000000 C" ]
 }
 
-
-@test "remove pairs" {
-
-  run cleos push action curve.sx removepair '["AB"]' -p curve.sx
-  echo "Output: $output"
-  [ $status -eq 0 ]
-
-  run cleos push action curve.sx removepair '["AC"]' -p curve.sx
-  echo "Output: $output"
-  [ $status -eq 0 ]
-
-  run cleos push action curve.sx removepair '["BC"]' -p curve.sx
-  echo "Output: $output"
-  [ $status -eq 0 ]
-
-  run cleos push action curve.sx removepair '["AD"]' -p curve.sx
-  echo "Output: $output"
-  [[ "$output" =~ "does not exist" ]]
-  [ $status -eq 1 ]
-}
