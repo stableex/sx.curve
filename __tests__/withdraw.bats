@@ -1,7 +1,7 @@
 
 #!/usr/bin/env bats
 
-@test "Withdraw all" {
+@test "withdraw all" {
   ac_balance=$(cleos get currency balance lptoken.sx liquidity.sx AC)
   ab_balance=$(cleos get currency balance lptoken.sx liquidity.sx AB)
   bc_balance=$(cleos get currency balance lptoken.sx liquidity.sx BC)
