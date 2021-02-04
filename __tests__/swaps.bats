@@ -1,7 +1,7 @@
 
 #!/usr/bin/env bats
 
-load bats.global.bash
+load bats.global
 
 @test "sample swaps" {
   a_balance=$(cleos get currency balance eosio.token myaccount A)
