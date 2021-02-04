@@ -348,21 +348,32 @@ symbol_code sx::curve::find_pair_id( const symbol_code symcode_in, const symbol_
 }
 
 [[eosio::action]]
-void sx::curve::setconfig( const std::optional<sx::curve::config_row> config )
+void sx::curve::setfee( const uint8_t fee )
 {
     require_auth( get_self() );
+
     sx::curve::config_table _config( get_self(), get_self().value );
-
-    // clear table if setting is `null`
-    if ( !config ) return _config.remove();
-
-    _config.set( *config, get_self() );
+    auto config = _config.get_or_default();
+    check( fee <= 30, "fee cannot exceed 0.3%");
+    config.fee = fee;
+    _config.set( config, get_self() );
 }
 
 [[eosio::action]]
-void sx::curve::createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier )
+void sx::curve::setstatus( const name status )
 {
-    if ( !has_auth( get_self() )) check(false, "`createpair` is currently disabled at the moment");
+    require_auth( get_self() );
+
+    sx::curve::config_table _config( get_self(), get_self().value );
+    auto config = _config.get_or_default();
+    config.status = status;
+    _config.set( config, get_self() );
+}
+
+[[eosio::action]]
+void sx::curve::createpair( const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier )
+{
+    require_auth( get_self() );
 
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
 

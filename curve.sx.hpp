@@ -24,31 +24,26 @@ public:
 
     static constexpr name id = "curve.sx"_n;
     static constexpr name code = "curve.sx"_n;
+    const std::string description = "SX Curve";
 
     /**
      * ## TABLE `config`
      *
      * - `{name} status` - contract status ("ok", "testing", "maintenance")
-     * - `{uint8_t} trading_fee` - trading fee (pips 1/100 of 1%)
-     * - `{uint8_t} protocol_fee` - protocol fee (pips 1/100 of 1%)
-     * - `{name} fee_account` - transfer protocol fees to account
+     * - `{uint8_t} fee` - trading fee (pips 1/100 of 1%)
      *
      * ### example
      *
      * ```json
      * {
      *   "status": "ok",
-     *   "trade_fee": 4,
-     *   "protocol_fee": 0,
-     *   "fee_account": "fee.sx"
+     *   "fee": 4
      * }
      * ```
      */
     struct [[eosio::table("config")]] config_row {
         name                status = "testing"_n;
-        uint8_t             trade_fee = 4;
-        uint8_t             protocol_fee = 0;
-        name                fee_account = "fee.sx"_n;
+        uint8_t             fee = 4;
     };
     typedef eosio::singleton< "config"_n, config_row > config_table;
 
@@ -139,23 +134,27 @@ public:
         return ((uint128_t) symcode0.raw()) << 64 | symcode1.raw();
     }
 
-    struct [[eosio::table("backup")]] backup_row {
-        symbol_code         id;
-        extended_asset      reserve0;
-        extended_asset      reserve1;
-        extended_asset      liquidity;
-        uint64_t            amplifier;
-        double              virtual_price;
-        double              price0_last;
-        double              price1_last;
-        asset               volume0;
-        asset               volume1;
-        time_point_sec      last_updated;
-
-        uint64_t primary_key() const { return id.raw(); }
-    };
-    typedef eosio::multi_index< "backup"_n, backup_row> backup_table;
-
+    /**
+     * ## TABLE `ramp`
+     *
+     * - `{symbol_code} id` - pair id
+     * - `{uint64_t} start_amplifier` - start amplifier when `ramp` action is initialized
+     * - `{uint64_t} target_amplifier` - target amplifier when end time is reached
+     * - `{time_point_sec} start_time` - start time when `ramp` action is initialized
+     * - `{time_point_sec} end_time` - end time when target amplifier will be reached
+     *
+     * ### example
+     *
+     * ```json
+     * {
+     *   "id": "AB",
+     *   "start_amplifier": 100,
+     *   "target_amplifier": 200,
+     *   "start_time": "2021-02-03T00:00:00"
+     *   "end_time": "2021-02-04T00:00:00"
+     * }
+     * ```
+     */
     struct [[eosio::table("ramp")]] ramp_row {
         symbol_code         pair_id;
         uint64_t            start_amplifier;
@@ -167,15 +166,7 @@ public:
     };
     typedef eosio::multi_index< "ramp"_n, ramp_row> ramp_table;
 
-    [[eosio::action]]
-    void setconfig( const std::optional<sx::curve::config_row> config );
-
-    [[eosio::action]]
-    void createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier );
-
-    [[eosio::action]]
-    void removepair( const symbol_code pair_id );
-
+    // USER
     [[eosio::action]]
     void deposit( const name owner, const symbol_code pair_id );
 
@@ -185,28 +176,24 @@ public:
     [[eosio::on_notify("*::transfer")]]
     void on_transfer( const name from, const name to, const asset quantity, const std::string memo );
 
-    // @ Admin functions
+    // ADMIN
+    [[eosio::action]]
+    void createpair( const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier );
+
+    [[eosio::action]]
+    void removepair( const symbol_code pair_id );
+
+    [[eosio::action]]
+    void setfee( const uint8_t fee );
+
+    [[eosio::action]]
+    void setstatus( const name status );
+
     [[eosio::action]]
     void ramp( const symbol_code pair_id, const uint64_t target_amplifier, const int64_t minutes );
 
     [[eosio::action]]
     void stopramp( const symbol_code pair_id );
-
-    // MAINTENANCE (TESTING ONLY)
-    [[eosio::action]]
-    void reset( const name table );
-
-    [[eosio::action]]
-    void backup();
-
-    [[eosio::action]]
-    void copy();
-
-    [[eosio::action]]
-    void update( const symbol_code pair_id );
-
-    [[eosio::action]]
-    void test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
 
     /**
      * ## STATIC `get_amplifier`
@@ -302,7 +289,7 @@ public:
         const int64_t reserve_in = mul_amount( pairs.reserve0.quantity.amount, MAX_PRECISION, precision_in );
         const int64_t reserve_out = mul_amount( pairs.reserve1.quantity.amount, MAX_PRECISION, precision_out );
         const uint64_t amplifier = get_amplifier( pair_id );
-        const uint8_t fee = config.trade_fee + config.protocol_fee;
+        const uint8_t fee = config.fee;
 
         // calculate out
         const int64_t out = div_amount( Curve::get_amount_out( amount_in, reserve_in, reserve_out, amplifier, fee ), MAX_PRECISION, precision_out );
@@ -319,6 +306,41 @@ public:
     {
         return amount / pow(10, precision0 - precision1 );
     }
+
+    // MAINTENANCE (TESTING ONLY)
+    // TO BE REMOVED FOR PRODUCTION
+    [[eosio::action]]
+    void reset( const name table );
+
+    [[eosio::action]]
+    void backup();
+
+    [[eosio::action]]
+    void copy();
+
+    [[eosio::action]]
+    void update( const symbol_code pair_id );
+
+    [[eosio::action]]
+    void test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
+
+    // TESTING ONLY
+    struct [[eosio::table("backup")]] backup_row {
+        symbol_code         id;
+        extended_asset      reserve0;
+        extended_asset      reserve1;
+        extended_asset      liquidity;
+        uint64_t            amplifier;
+        double              virtual_price;
+        double              price0_last;
+        double              price1_last;
+        asset               volume0;
+        asset               volume1;
+        time_point_sec      last_updated;
+
+        uint64_t primary_key() const { return id.raw(); }
+    };
+    typedef eosio::multi_index< "backup"_n, backup_row> backup_table;
 
 private:
     // token helpers
