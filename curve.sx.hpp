@@ -16,6 +16,7 @@ static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
 static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
 static constexpr uint32_t MIN_RAMP_TIME = 60; // PRODUCTION => 86400
+static constexpr uint32_t MAX_AMPLIFIER = 1000;
 
 namespace sx {
 class [[eosio::contract("curve.sx")]] curve : public eosio::contract {

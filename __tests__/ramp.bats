@@ -14,6 +14,10 @@
   [ $status -eq 1 ]
   [[ "$output" =~ "should be above" ]]
 
+  run cleos push action curve.sx ramp '["AD", 100, 0]' -p curve.sx
+  [ $status -eq 1 ]
+  [[ "$output" =~ "does not exist in" ]]
+
 }
 @test "ramp AB amplifier 20->200" {
 

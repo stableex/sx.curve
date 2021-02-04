@@ -397,6 +397,7 @@ void sx::curve::createpair( const symbol_code pair_id, const extended_symbol res
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
     check( !find_pair_id( sym0.code(), sym1.code() ).is_valid(), "pair with these reserves already exists" );
     check( _pairs.find( pair_id.raw() ) == _pairs.end(), "pair id already exists" );
+    check( amplifier > 0 && amplifier <= MAX_AMPLIFIER, "Curve.sx: invalid amplifier" );
 
     // create liquidity token
     const extended_symbol liquidity = {{ pair_id, max(sym0.precision(), sym1.precision())}, TOKEN_CONTRACT };
@@ -533,6 +534,7 @@ void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     auto pair = _pairs.get(pair_id.raw(), "`pair_id` does not exist in `pairs`");
 
+    check( target_amplifier > 0 && target_amplifier <= MAX_AMPLIFIER, "Curve.sx: target amplifier should be within within valid range");
     check( minutes > 0, "Curve.sx: minutes should be above 0");
     check( minutes * 60 >= MIN_RAMP_TIME, "Curve.sx: minimum ramp timeframe must exceed " + to_string(MIN_RAMP_TIME) + " seconds");
     // check(timestamp > current_time_point(), "timestamp must be in the future");
