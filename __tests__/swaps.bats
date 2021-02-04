@@ -58,6 +58,29 @@ load bats.global.bash
   [ $status -eq 1 ]
 }
 
+@test "swap with protocol fee" {
+  run cleos push action curve.sx setfee '[4, 1, "fee.sx"]' -p curve.sx
+  [ $status -eq 0 ]
+
+  fee_balance=$(cleos get currency balance eosio.token fee.sx)
+  [ "$fee_balance" = "" ]
+
+  run cleos transfer myaccount curve.sx "100.0000 A" "B"
+  [ $status -eq 0 ]
+
+  run cleos transfer myaccount curve.sx "100.0000 B" "A"
+  [ $status -eq 0 ]
+
+  fee_balance=$(cleos get currency balance eosio.token fee.sx A)
+  [ "$fee_balance" = "0.0100 A" ]
+
+  fee_balance=$(cleos get currency balance eosio.token fee.sx B)
+  [ "$fee_balance" = "0.0100 B" ]
+
+  run cleos push action curve.sx setfee '[4, 0, "fee.sx"]' -p curve.sx
+  [ $status -eq 0 ]
+}
+
 
 @test "100 random swaps and withdraw all" {
   symbols="ABC"
