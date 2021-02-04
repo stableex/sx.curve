@@ -15,7 +15,7 @@ static constexpr uint8_t MAX_PRECISION = 9;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
 static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
-static constexpr uint32_t MIN_RAMP_TIME = 86400;
+static constexpr uint32_t MIN_RAMP_TIME = 60; // PRODUCTION => 86400
 
 namespace sx {
 class [[eosio::contract("curve.sx")]] curve : public eosio::contract {
@@ -30,20 +30,26 @@ public:
      * ## TABLE `config`
      *
      * - `{name} status` - contract status ("ok", "testing", "maintenance")
-     * - `{uint8_t} fee` - trading fee (pips 1/100 of 1%)
+     * - `{uint8_t} trade_fee` - trading fee (pips 1/100 of 1%)
+     * - `{uint8_t} protocol_fee` - trading fee (pips 1/100 of 1%)
+     * - `{name} fee_account` - protocol fee are transfered to account
      *
      * ### example
      *
      * ```json
      * {
      *   "status": "ok",
-     *   "fee": 4
+     *   "trade_fee": 4,
+     *   "protocol_fee": 0,
+     *   "fee_account": "fee.sx"
      * }
      * ```
      */
     struct [[eosio::table("config")]] config_row {
         name                status = "testing"_n;
-        uint8_t             fee = 4;
+        uint8_t             trade_fee = 4;
+        uint8_t             protocol_fee = 0;
+        name                fee_account = "fee.sx"_n;
     };
     typedef eosio::singleton< "config"_n, config_row > config_table;
 
@@ -184,7 +190,7 @@ public:
     void removepair( const symbol_code pair_id );
 
     [[eosio::action]]
-    void setfee( const uint8_t fee );
+    void setfee( const uint8_t trade_fee, const optional<uint8_t> protocol_fee, const optional<name> fee_account );
 
     [[eosio::action]]
     void setstatus( const name status );
@@ -289,7 +295,10 @@ public:
         const int64_t reserve_in = mul_amount( pairs.reserve0.quantity.amount, MAX_PRECISION, precision_in );
         const int64_t reserve_out = mul_amount( pairs.reserve1.quantity.amount, MAX_PRECISION, precision_out );
         const uint64_t amplifier = get_amplifier( pair_id );
-        const uint8_t fee = config.fee;
+        const uint8_t fee = config.trade_fee;
+
+        // enforce minimum fee
+        if ( fee ) check( in.amount * fee / 10000, "Curve.sx: trade quantity too small");
 
         // calculate out
         const int64_t out = div_amount( Curve::get_amount_out( amount_in, reserve_in, reserve_out, amplifier, fee ), MAX_PRECISION, precision_out );

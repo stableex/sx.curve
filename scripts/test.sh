@@ -15,12 +15,13 @@ cleos -v push action curve.sx test "[10000000000, $reserve_in, $reserve_out, $am
 cleos -v push action curve.sx test "[10000000000, $reserve_out, $reserve_in, $amplifier, $fee]" -p curve.sx
 
 # settings
-cleos push action curve.sx setconfig '[["ok", 4, 0, "fee.sx"]]' -p curve.sx
+cleos push action curve.sx setfee '[4, 0, "fee.sx"]' -p curve.sx
+cleos push action curve.sx setstatus '["ok"]' -p curve.sx
 
 # set pair
-cleos -v push action curve.sx createpair '["curve.sx", "AB", ["4,A", "eosio.token"], ["4,B", "eosio.token"], 20]' -p curve.sx
-cleos -v push action curve.sx createpair '["curve.sx", "BC", ["4,B", "eosio.token"], ["8,C", "eosio.token"], 100]' -p curve.sx
-cleos -v push action curve.sx createpair '["curve.sx", "AC", ["4,A", "eosio.token"], ["8,C", "eosio.token"], 200]' -p curve.sx
+cleos -v push action curve.sx createpair '["AB", ["4,A", "eosio.token"], ["4,B", "eosio.token"], 20]' -p curve.sx
+cleos -v push action curve.sx createpair '["BC", ["4,B", "eosio.token"], ["8,C", "eosio.token"], 100]' -p curve.sx
+cleos -v push action curve.sx createpair '["AC", ["4,A", "eosio.token"], ["8,C", "eosio.token"], 200]' -p curve.sx
 
 # add liquidity to pairs
 cleos transfer myaccount curve.sx "1000.0000 A" "AB"

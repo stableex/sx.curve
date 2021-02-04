@@ -8,7 +8,7 @@
 }
 
 @test "set config" {
-  run cleos push action curve.sx setfee '[4]' -p curve.sx
+  run cleos push action curve.sx setfee '[4, 0, "fee.sx"]' -p curve.sx
   run cleos push action curve.sx setstatus '["ok"]' -p curve.sx
   echo "Output: $output"
   [ $status -eq 0 ]
