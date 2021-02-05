@@ -133,10 +133,10 @@ load bats.global
 
   run cleos transfer myaccount curve.sx "100.0000 A" "B"
   [ $status -eq 0 ]
-  [[ "$output" =~ "99.8544 B" ]]
+  [[ "$output" =~ "99.8445 B" ]]
 
   run cleos transfer myaccount curve.sx "100.0000 B" "A"
-  [[ "$output" =~ "100.0748 A" ]]
+  [[ "$output" =~ "100.0648 A" ]]
   [ $status -eq 0 ]
 
   fee_balance=$(cleos get currency balance eosio.token fee.sx A)
