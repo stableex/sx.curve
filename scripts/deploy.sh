@@ -40,9 +40,6 @@ B_LP_TOTAL=1000000
 C_LP_TOTAL=1000000
 
 # transfer tokens
-cleos transfer eosio curve.sx "1000.0000 B" "curve.sx"
-cleos transfer eosio curve.sx "1000.0000 A" "curve.sx"
-cleos transfer eosio curve.sx "1000.000000000 C" "curve.sx"
 cleos transfer eosio myaccount "1000000.0000 B" ""
 cleos transfer eosio myaccount "1000000.0000 A" ""
 cleos transfer eosio myaccount "1000000.0000 A" "" --contract fake.token

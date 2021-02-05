@@ -474,14 +474,13 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
             check(!finalize, "empty pool reserves");
             return {};
         }
-        // deduct protocol fees
-        const int64_t protocol_fee = ext_in.quantity.amount * config.protocol_fee / 10000;
-        const extended_asset protocol_out = { protocol_fee, ext_in.get_extended_symbol() };
-
         // calculate out
-        ext_out = { get_amount_out( ext_in.quantity - protocol_out.quantity, pair_id ), reserve_out.contract };
+        ext_out = { get_amount_out( ext_in.quantity, pair_id ), reserve_out.contract };
 
         if (finalize) {
+            // send protocol fees to fee account
+            const extended_asset protocol_out = { ext_in.quantity.amount * config.protocol_fee / 10000, ext_in.get_extended_symbol() };
+
             // modify reserves
             _pairs.modify( pairs, get_self(), [&]( auto & row ) {
                 if ( is_in ) {
@@ -502,7 +501,7 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
                 row.last_updated = current_time_point();
             });
             // send protocol fees
-            if ( protocol_fee ) transfer( get_self(), config.fee_account, protocol_out, "Curve.sx: protocol fee");
+            if ( protocol_out.quantity.amount ) transfer( get_self(), config.fee_account, protocol_out, "Curve.sx: protocol fee");
         }
         ext_in = ext_out;
     }
@@ -570,21 +569,17 @@ void sx::curve::update_amplifiers( )
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
     // update `pairs` table with active ramp up/down that are different
-    auto ramp_itr = _ramp.begin();
-    while ( ramp_itr != _ramp.end() ) {
-        auto pair_itr = _pairs.find(ramp_itr->pair_id.raw());
-        if( pair_itr == _pairs.end()){          //pair not in pairs table - probably deleted, so erase ramp iterator
-            ramp_itr = _ramp.erase(ramp_itr);
-        }
-        else {
-            const uint64_t amplifier = sx::curve::get_amplifier( ramp_itr->pair_id );
-            // amplifier needs to be updated since different then ramp up/down
-            if ( pair_itr->amplifier != amplifier ) {
-                _pairs.modify( pair_itr, get_self(), [&]( auto & row ) {
-                    row.amplifier = amplifier;
-                });
-            }
-            ++ramp_itr;
+    for ( const auto ramp : _ramp ) {
+        auto pair_itr = _pairs.find(ramp.pair_id.raw());
+        if ( pair_itr == _pairs.end() ) continue;
+        const uint64_t amplifier = sx::curve::get_amplifier( ramp.pair_id );
+
+        // modify pairs table if amplifier is different
+        if ( pair_itr->amplifier != amplifier ) {
+            _pairs.modify( pair_itr, get_self(), [&]( auto & row ) {
+                row.amplifier = amplifier;
+                row.last_updated = current_time_point();
+            });
         }
     }
 }
