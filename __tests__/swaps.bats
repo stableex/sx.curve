@@ -150,7 +150,7 @@ load bats.global
 }
 
 
-@test "50 random swaps" {skip
+@test "50 random swaps" {
   symbols="ABC"
   for i in {0..50}
   do
