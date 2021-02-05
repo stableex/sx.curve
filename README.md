@@ -1,22 +1,32 @@
-# **`Curve`**
+# **`SX Curve`**
 
-[![Build Status](https://travis-ci.org/stableex/sx.curve.svg?branch=master)](https://travis-ci.org/stableex/sx.uniswap)
-
-> Peripheral EOSIO smart contracts for interacting with Curve
+> Peripheral EOSIO smart contracts for interacting with SX Curve
 
 ## Quickstart
 
-```c++
-#include "curve.hpp"
+### `cleos`
 
-// Inputs
-const uint64_t amount_in = 100000;
-const uint64_t reserve_in = 45851931234;
-const uint64_t reserve_out = 125682033533;
-const uint64_t amplifier = 450;
-const uint64_t fee = 4;
-
-// Calculation
-const uint64_t out = curve::get_amount_out( amount_in, reserve_in, reserve_out, amplifier, fee );
-// => 100110
+```bash
+$ cleos transfer myaccount curve.sx "10.0000 USDT" "USN" --contract tethertether
+# => receive "10.1000 USN@danchortoken"
 ```
+
+### C++
+
+```c++
+#include "curve.sx.hpp"
+
+// User Inputs
+const asset in = asset{10'0000, {"USDT", 4}};
+const symbol_code pair_id = symbol_code{"SXA"};
+
+// Calculated Output
+const asset out = sx::curve::get_amount_out( in, pair_id );
+//=> "10.1000 USN"
+```
+
+## Dependencies
+
+- [sx.utils](https://github.com/stableex/sx.utils)
+- [sx.rex](https://github.com/stableex/sx.rex)
+- [eosio.token](https://github.com/EOSIO/eosio.contracts)

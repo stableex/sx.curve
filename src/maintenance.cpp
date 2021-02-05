@@ -2,7 +2,7 @@
 void sx::curve::test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee )
 {
     print ("\ncurrent get_amount_out(amount: ",amount,", amp: ",amplifier, "  ): ", Curve::get_amount_out( amount, reserve_in, reserve_out, amplifier, fee ));
-    print ("\nnew get_amount_out(amount: ",amount,", amp: ",amplifier * 100,"): ", Curve::get_amount_out_bips( amount, reserve_in, reserve_out, amplifier * 100, fee ));
+    // print ("\nnew get_amount_out(amount: ",amount,", amp: ",amplifier * 100,"): ", Curve::get_amount_out_bips( amount, reserve_in, reserve_out, amplifier * 100, fee ));
 
     check(false, "see print");
 }

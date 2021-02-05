@@ -4,7 +4,8 @@
 #include <eosio/time.hpp>
 #include <eosio/asset.hpp>
 #include <eosio/singleton.hpp>
-#include <sx.curve/curve.hpp>
+
+#include "curve.hpp"
 
 #include <optional>
 
@@ -220,7 +221,7 @@ public:
      * ```c++
      * const symbol_code pair_id = symbol_code {"SXA"};
      * const uint64_t amplifier  = sx::curve::get_amplifier( pair_id );
-     * // => 100
+     * //=> 100
      * ```
      */
     static uint64_t get_amplifier( const symbol_code pair_id )
@@ -268,11 +269,11 @@ public:
      * ### example
      *
      * ```c++
-     * const asset in = asset {10'0000, {"A", 4}};
-     * const symbol_code pair_id = symbol_code {"SXA"};
+     * const asset in = asset{10'0000, {"A", 4}};
+     * const symbol_code pair_id = symbol_code{"SXA"};
      *
-     * const asset out  = sx::curve::get_amount_out( in, pair_id );
-     * => 10.1000 B
+     * const asset out = sx::curve::get_amount_out( in, pair_id );
+     * //=> "10.1000 B"
      * ```
      */
     static asset get_amount_out( const asset in, const symbol_code pair_id )
@@ -296,7 +297,7 @@ public:
         const int64_t reserve_in = mul_amount( pairs.reserve0.quantity.amount, MAX_PRECISION, precision_in );
         const int64_t reserve_out = mul_amount( pairs.reserve1.quantity.amount, MAX_PRECISION, precision_out );
         const uint64_t amplifier = get_amplifier( pair_id );
-        const int64_t protocol_fee = in.amount * config.protocol_fee / 10000
+        const int64_t protocol_fee = in.amount * config.protocol_fee / 10000;
 
         // enforce minimum fee
         if ( config.trade_fee ) check( in.amount * config.trade_fee / 10000, "Curve.sx: trade quantity too small");
@@ -379,11 +380,9 @@ private:
 
     // calculate return for trade via {path}, finalize it if {finalize}==true
     extended_asset apply_trade( const extended_asset ext_in, const vector<symbol_code>& path, bool finalize = false );
-
-
     void update_amplifiers( );
 
-    // maintenance
+    // MAINTENANCE (TO BE REMOVED IN PRODUCTION)
     template <typename T>
     void clear_table( T& table );
 };
