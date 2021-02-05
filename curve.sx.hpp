@@ -297,7 +297,7 @@ public:
         const int64_t reserve_in = mul_amount( pairs.reserve0.quantity.amount, MAX_PRECISION, precision_in );
         const int64_t reserve_out = mul_amount( pairs.reserve1.quantity.amount, MAX_PRECISION, precision_out );
         const uint64_t amplifier = get_amplifier( pair_id );
-        const int64_t protocol_fee = in.amount * config.protocol_fee / 10000;
+        const int64_t protocol_fee = amount_in * config.protocol_fee / 10000;
 
         // enforce minimum fee
         if ( config.trade_fee ) check( in.amount * config.trade_fee / 10000, "Curve.sx: trade quantity too small");
