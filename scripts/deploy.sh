@@ -35,9 +35,8 @@ cleos push action eosio.token issue '["eosio", "5000000.000000000 C", "init"]' -
 cleos push action fake.token create '["eosio", "100000000.0000 A"]' -p fake.token
 cleos push action fake.token issue '["eosio", "5000000.0000 A", "init"]' -p eosio
 
-A_LP_TOTAL=1000000
-B_LP_TOTAL=1000000
-C_LP_TOTAL=1000000
+# load variables used for testing
+source __tests__/bats.global.bash
 
 # transfer tokens
 cleos transfer eosio myaccount "1000000.0000 B" ""
