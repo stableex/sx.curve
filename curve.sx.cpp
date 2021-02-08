@@ -103,6 +103,7 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
             }
             // calculate last price
             const double price = calculate_price( ext_in.quantity, ext_out.quantity );
+            row.amplifier = get_amplifier( pair_id );
             row.virtual_price = calculate_virtual_price( row.reserve0.quantity, row.reserve1.quantity, row.liquidity.quantity );
             row.price0_last = is_in ? 1 / price : price;
             row.price1_last = is_in ? price : 1 / price;
@@ -364,7 +365,8 @@ void sx::curve::setfee( const uint8_t trade_fee, const optional<uint8_t> protoco
     auto config = _config.get_or_default();
 
     // required params
-    check( trade_fee + *protocol_fee <= 300, "`trade_fee` + `protocol_fee` cannot exceed 3%");
+    check( trade_fee <= MAX_TRADE_FEE, "`trade_fee` has exceeded maximum limit");
+    check( *protocol_fee <= MAX_PROTOCOL_FEE, "`protocol_fee` has exceeded maximum limit");
 
     // optional params
     if ( fee_account->value ) check( is_account( *fee_account ), "`fee_account` does not exist");
@@ -395,12 +397,6 @@ void sx::curve::createpair( const name creator, const symbol_code pair_id, const
     if ( !has_auth( get_self() ) ) check( false, "`creator` is disabled from creating pair during beta period");
     require_auth( creator );
 
-    // =======
-    //  TO-DO
-    // =======
-    // 1. create liquidity from incremental `pair_id` ( 1 => SXA, 2 => SXB, 27 => SXAA )
-    // 2. auto increment `config::pair_id`
-
     // tables
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     sx::curve::config_table _config( get_self(), get_self().value );
@@ -412,12 +408,11 @@ void sx::curve::createpair( const name creator, const symbol_code pair_id, const
     const symbol sym1 = reserve1.get_symbol();
 
     // check reserves
-    check( is_account( contract0 ), "reserve0 contract does not exists");
-    check( is_account( contract1 ), "reserve1 contract does not exists");
-    check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "reserve0 symbol mismatch" );
-    check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
-    // check( !find_pair_id( sym0.code(), sym1.code() ).is_valid(), "pair with these reserves already exists" );
-    check( _pairs.find( pair_id.raw() ) == _pairs.end(), "pair id already exists" );
+    check( is_account( contract0 ), "Curve.sx: reserve0 contract does not exists");
+    check( is_account( contract1 ), "Curve.sx: reserve1 contract does not exists");
+    check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "Curve.sx: reserve0 symbol mismatch" );
+    check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "Curve.sx: reserve1 symbol mismatch" );
+    check( _pairs.find( pair_id.raw() ) == _pairs.end(), "Curve.sx: `pair_id` already exists" );
     check( amplifier > 0 && amplifier <= MAX_AMPLIFIER, "Curve.sx: invalid amplifier" );
 
     // create liquidity token
@@ -430,7 +425,7 @@ void sx::curve::createpair( const name creator, const symbol_code pair_id, const
     // create token if supply does not exist
     if ( stats_itr == _stats.end() ) create( liquidity );
     // supply must be empty
-    else check( !stats_itr->supply.amount, "`createpair` requires zero existing supply" );
+    else check( !stats_itr->supply.amount, "Curve.sx: creating new pair requires existing supply to be zero" );
 
     // create pair
     _pairs.emplace( creator, [&]( auto & row ) {

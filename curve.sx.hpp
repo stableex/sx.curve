@@ -13,12 +13,14 @@ using namespace eosio;
 using namespace std;
 
 // Static values
+static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
 static constexpr uint8_t MAX_PRECISION = 9;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
-static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
-static constexpr uint32_t MIN_RAMP_TIME = 60; // PRODUCTION => 86400
-static constexpr uint32_t MAX_AMPLIFIER = 1000;
+static constexpr uint32_t MIN_RAMP_TIME = 86400;
+static constexpr uint32_t MAX_AMPLIFIER = 1000000;
+static constexpr uint32_t MAX_PROTOCOL_FEE = 100;
+static constexpr uint32_t MAX_TRADE_FEE = 50;
 
 // Error messages
 static string ERROR_INVALID_MEMO = "Curve.sx: invalid memo (ex: \"swap,<min_return>,<pair_ids>\" or \"deposit,<pair_id>\"";

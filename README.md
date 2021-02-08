@@ -10,7 +10,7 @@
 
 ```bash
 $ cleos transfer myaccount curve.sx "10.0000 USDT" "swap,0,SXA" --contract tethertether
-# => receive "10.1000 USN@danchortoken"
+# => receive "10.0000 USN@danchortoken"
 ```
 
 ### `deposit`
@@ -44,7 +44,7 @@ const symbol_code pair_id = symbol_code{"SXA"};
 
 // Calculated Output
 const asset out = sx::curve::get_amount_out( in, pair_id );
-//=> "10.1000 USN"
+//=> "10.0000 USN"
 ```
 
 ## Dependencies
