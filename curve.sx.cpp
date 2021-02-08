@@ -51,19 +51,19 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     }
 }
 
-void sx::curve::convert( const name receiver, const extended_asset ext_in, const vector<symbol_code> pair_ids, const int64_t min_return )
+void sx::curve::convert( const name owner, const extended_asset ext_in, const vector<symbol_code> pair_ids, const int64_t min_return )
 {
     // execute the trade by updating all involved pools
-    const extended_asset out = apply_trade( ext_in, pair_ids );
+    const extended_asset out = apply_trade( owner, ext_in, pair_ids );
 
     // enforce minimum return (slippage protection)
     check(out.quantity.amount != 0 && out.quantity.amount >= min_return, "Curve.sx: invalid minimum return");
 
-    // transfer amount to receiver
-    transfer( get_self(), receiver, out, "Curve.sx: swap token" );
+    // transfer amount to owner
+    transfer( get_self(), owner, out, "Curve.sx: swap token" );
 }
 
-extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const vector<symbol_code> pair_ids )
+extended_asset sx::curve::apply_trade( const name owner, const extended_asset ext_quantity, const vector<symbol_code> pair_ids )
 {
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     sx::curve::config_table _config( get_self(), get_self().value );
@@ -88,16 +88,18 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
         ext_out = { get_amount_out( ext_in.quantity, pair_id ), reserve_out.contract };
 
         // send protocol fees to fee account
-        const extended_asset protocol_out = { ext_in.quantity.amount * config.protocol_fee / 10000, ext_in.get_extended_symbol() };
+        const extended_asset protocol_fee = { ext_in.quantity.amount * config.protocol_fee / 10000, ext_in.get_extended_symbol() };
+        const extended_asset trade_fee = { ext_in.quantity.amount * config.trade_fee / 10000, ext_in.get_extended_symbol() };
+        const extended_asset fee = protocol_fee + trade_fee;
 
         // modify reserves
         _pairs.modify( pairs, get_self(), [&]( auto & row ) {
             if ( is_in ) {
-                row.reserve0.quantity += ext_in.quantity - protocol_out.quantity;
+                row.reserve0.quantity += ext_in.quantity - protocol_fee.quantity;
                 row.reserve1.quantity -= ext_out.quantity;
                 row.volume0 += ext_in.quantity;
             } else {
-                row.reserve1.quantity += ext_in.quantity - protocol_out.quantity;
+                row.reserve1.quantity += ext_in.quantity - protocol_fee.quantity;
                 row.reserve0.quantity -= ext_out.quantity;
                 row.volume1 += ext_in.quantity;
             }
@@ -109,9 +111,13 @@ extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const 
             row.price1_last = is_in ? price : 1 / price;
             row.trades += 1;
             row.last_updated = current_time_point();
+
+            // swap log
+            sx::curve::swaplog_action swaplog( get_self(), { get_self(), "active"_n });
+            swaplog.send( pair_id, owner, ext_in, ext_out, fee, price, row.reserve0, row.reserve1 );
         });
         // send protocol fees
-        if ( protocol_out.quantity.amount ) transfer( get_self(), config.fee_account, protocol_out, "Curve.sx: protocol fee");
+        if ( protocol_fee.quantity.amount ) transfer( get_self(), config.fee_account, protocol_fee, "Curve.sx: protocol fee");
 
         // swap input as output to prepare for next conversion
         ext_in = ext_out;
@@ -495,12 +501,15 @@ vector<symbol_code> sx::curve::parse_memo_pair_ids( const string memo )
 {
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
+    set<symbol_code> duplicates;
     vector<symbol_code> pair_ids;
     for ( const string str : sx::utils::split(memo, "-") ) {
         const symbol_code symcode = sx::utils::parse_symbol_code( str );
         check( symcode.raw(), ERROR_INVALID_MEMO );
         check( _pairs.find( symcode.raw() ) != _pairs.end(), "Curve.sx: `pair_id` does not exist");
         pair_ids.push_back( symcode );
+        check( !duplicates.count( symcode ), "Curve.sx: invalid duplicate `pair_ids`");
+        duplicates.insert( symcode );
     }
     return pair_ids;
 }

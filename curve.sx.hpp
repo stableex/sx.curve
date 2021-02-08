@@ -391,11 +391,11 @@ private:
     void retire( const extended_asset value, const string memo );
     void issue( const extended_asset value, const string memo );
 
-    // // exchange {ext_in} and send to receiver
-    void convert( const name receiver, const extended_asset ext_in, const vector<symbol_code> pair_ids, const int64_t min_return );
-    extended_asset apply_trade( const extended_asset ext_quantity, const vector<symbol_code> pair_ids );
+    // swap conversions
+    void convert( const name owner, const extended_asset ext_in, const vector<symbol_code> pair_ids, const int64_t min_return );
+    extended_asset apply_trade( const name owner, const extended_asset ext_quantity, const vector<symbol_code> pair_ids );
 
-    // add liquidity {value} to pool {id} for {owner}
+    // add/remove liquidity
     void add_liquidity( const name owner, const symbol_code pair_id, const extended_asset value );
     void withdraw_liquidity( const name owner, const extended_asset value );
 
@@ -404,16 +404,6 @@ private:
     vector<symbol_code> parse_memo_pair_ids( const string memo );
     double calculate_price( const asset value0, const asset value1 );
     double calculate_virtual_price( const asset value0, const asset value1, const asset supply );
-
-    // // find pair_id based on symbol_code of incoming tokens and memo
-    // symbol_code find_pair_id( const symbol_code symcode_in, const symbol_code symcode_memo );
-
-    // // find all possible paths to trade symcode_in to memo symcode, include 2-hops
-    // vector<vector<symbol_code>> find_trade_paths( const symbol_code symcode_in, const symbol_code symcode_out );
-
-    // // calculate return for trade via {path}, finalize it if {finalize}==true
-    // extended_asset apply_trade( const extended_asset ext_in, const vector<symbol_code>& path, bool finalize = false );
-    // void update_amplifiers( );
 
     // MAINTENANCE (TO BE REMOVED IN PRODUCTION)
     template <typename T>
