@@ -1,3 +1,19 @@
+[[eosio::action]]
+void sx::curve::liquiditylog( const symbol_code pair_id, const name owner, const extended_asset liquidity, const extended_asset quantity0,  const extended_asset quantity1, const extended_asset total_liquidity, const extended_asset reserve0, const extended_asset reserve1 )
+{
+    require_auth( get_self() );
+    if ( is_account( "stats.sx"_n ) ) require_recipient( "stats.sx"_n );
+    require_recipient( owner );
+}
+
+[[eosio::action]]
+void sx::curve::swaplog( const symbol_code pair_id, const name owner, const extended_asset quantity_in, const extended_asset quantity_out, const extended_asset fee, const double trade_price, const extended_asset reserve0, const extended_asset reserve1 )
+{
+    require_auth( get_self() );
+    if ( is_account( "stats.sx"_n ) ) require_recipient( "stats.sx"_n );
+    require_recipient( owner );
+}
+
 void sx::curve::create( const extended_symbol value )
 {
     eosio::token::create_action create( value.get_contract(), { value.get_contract(), "active"_n });

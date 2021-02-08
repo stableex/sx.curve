@@ -171,6 +171,29 @@ public:
     };
     typedef eosio::multi_index< "ramp"_n, ramp_row> ramp_table;
 
+    /**
+     * ## STRUCT `memo_schema`
+     *
+     * - `{name} action` - action name ("swap", "deposit")
+     * - `{vector<symbol_code>} symcodes` - symbol codes pair ids
+     * - `{int64_t} min_return` - minimum return amount expected
+     *
+     * ### example
+     *
+     * ```json
+     * {
+     *   "action": "swap",
+     *   "symcodes": ["AB", "BC"],
+     *   "min_return": 100
+     * }
+     * ```
+     */
+    struct memo_schema {
+        name                    action;
+        vector<symbol_code>     symcodes;
+        int64_t                 min_return;
+    };
+
     // USER
     [[eosio::action]]
     void deposit( const name owner, const symbol_code pair_id );
@@ -199,6 +222,15 @@ public:
 
     [[eosio::action]]
     void stopramp( const symbol_code pair_id );
+
+    [[eosio::action]]
+    void liquiditylog( const symbol_code pair_id, const name owner, const extended_asset liquidity, const extended_asset quantity0, const extended_asset quantity1, const extended_asset total_liquidity, const extended_asset reserve0, const extended_asset reserve1 );
+
+    [[eosio::action]]
+    void swaplog( const symbol_code pair_id, const name owner, const extended_asset quantity_in, const extended_asset quantity_out, const extended_asset fee, const double trade_price, const extended_asset reserve0, const extended_asset reserve1 );
+
+    using liquiditylog_action = eosio::action_wrapper<"liquiditylog"_n, &sx::curve::liquiditylog>;
+    using swaplog_action = eosio::action_wrapper<"swaplog"_n, &sx::curve::swaplog>;
 
     /**
      * ## STATIC `get_amplifier`
@@ -365,7 +397,7 @@ private:
     void withdraw_liquidity( const name owner, const extended_asset value );
 
     // utils
-    pair<vector<symbol_code>, int64_t> parse_memo( const string memo );
+    memo_schema parse_memo( const string memo );
     vector<symbol_code> parse_memo_symcodes( const string memo );
     double calculate_price( const asset value0, const asset value1 );
     double calculate_virtual_price( const asset value0, const asset value1, const asset supply );

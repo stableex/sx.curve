@@ -4,7 +4,7 @@
 
 #include "curve.sx.hpp"
 #include "src/maintenance.cpp"
-#include "src/token.cpp"
+#include "src/actions.cpp"
 
 /**
  * Notify contract when any token transfer notifiers relay contract
@@ -31,31 +31,25 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     if ( status == "testing"_n ) check( from.suffix() == "sx"_n, "account must be *.sx during testing period");
 
     // user input params
-    auto [ symcodes, min_return ] = parse_memo(memo);
-    print(symcodes[0], "-", symcodes[1], ":", min_return);
-    // receiver = receiver.value ? receiver : from;
-    // const symbol_code symcode_memo = ext_min_out.quantity.symbol.code();
-    // const extended_asset ext_in { quantity, get_first_receiver() };
-    // auto pair = _pairs.find(symcode_memo.raw());
+    const auto parsed_memo = parse_memo( memo );
+    const extended_asset ext_in = { quantity, get_first_receiver() };
 
-    // // withdraw liquidity
-    // if ( _pairs.find( quantity.symbol.code().raw() ) != _pairs.end() ) {
-    //     withdraw_liquidity( from, ext_in );
+    // withdraw liquidity
+    if ( _pairs.find( quantity.symbol.code().raw() ) != _pairs.end() ) {
+        withdraw_liquidity( from, ext_in );
 
-    // // add liquidity
-    // } else if ( pair != _pairs.end() ) {
-    //     check( memo == symcode_memo.to_string(), "Curve.sx: memo should contain liquidity symbol code only");
-    //     check( from == receiver, "Curve.sx: receiver cannot be defined when adding liquidity" );
-    //     add_liquidity( from, symcode_memo, ext_in );
+    // add liquidity
+    } else if ( parsed_memo.action == "deposit"_n ) {
+        add_liquidity( from, parsed_memo.symcodes[0], ext_in );
 
-    // // swap convert (ex: USDT => USN)
-    // } else {
-    //     check( ext_min_out.quantity.symbol.code().raw(), "Curve.sx: memo should contain target currency");
-    //     // convert( ext_in, ext_min_out, receiver );
-    // }
+    // swap convert (ex: USDT => USN)
+    } else if ( parsed_memo.action == "swap"_n) {
+        // convert( from, ext_in, parsed_memo.symcodes, parsed_memo.min_return );
+        print( from, ext_in, parsed_memo.symcodes[0], "-", parsed_memo.symcodes[1], ":", parsed_memo.min_return);
 
-    // // ramp up/down updates after swap/deposit is completed
-    // update_amplifiers();
+    } else {
+        check( false, ERROR_INVALID_MEMO );
+    }
 }
 
 [[eosio::action]]
@@ -131,6 +125,10 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
         row.reserve0 += ext_deposit0;
         row.reserve1 += ext_deposit1;
         row.liquidity += issued;
+
+        // log liquidity change
+        sx::curve::liquiditylog_action liquiditylog( get_self(), { get_self(), "active"_n });
+        liquiditylog.send( pair_id, owner, issued, orders.quantity0, orders.quantity1, row.liquidity, row.reserve0, row.reserve1 );
     });
 
     // issue & transfer to owner
@@ -171,7 +169,8 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
     // get current pairs
-    auto & pair = _pairs.get( value.quantity.symbol.code().raw(), "Curve.sx: pairs does not exist");
+    const symbol_code pair_id = value.quantity.symbol.code();
+    auto & pair = _pairs.get( pair_id.raw(), "Curve.sx: pairs does not exist");
 
     // extended symbols
     const extended_symbol ext_sym0 = pair.reserve0.get_extended_symbol();
@@ -207,6 +206,10 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
         row.reserve0 -= out0;
         row.reserve1 -= out1;
         row.liquidity -= value;
+
+        // log liquidity change
+        sx::curve::liquiditylog_action liquiditylog( get_self(), { get_self(), "active"_n });
+        liquiditylog.send( pair_id, owner, value, out0, out1, row.liquidity, row.reserve0, row.reserve1 );
     });
 
     // issue & transfer to owner
@@ -249,29 +252,30 @@ void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, cons
 // ============
 // Swap: `swap,<min_return>,<pair_ids>`
 // Deposit: `deposit,<pair_id>`
-pair<vector<symbol_code>, int64_t> sx::curve::parse_memo( const string memo )
+sx::curve::memo_schema sx::curve::parse_memo( const string memo )
 {
     // split memo into parts
     const vector<string> parts = sx::utils::split(memo, ",");
     check(parts.size() <= 3, ERROR_INVALID_MEMO );
-    const name action = sx::utils::parse_name(parts[0]);
+
+    // memo result
+    memo_schema result;
+    result.action = sx::utils::parse_name(parts[0]);
+    result.min_return = 0;
 
     // swap action
-    if ( action == "swap"_n ) {
-        const auto symcodes = parse_memo_symcodes( parts[2] );
-        const int64_t min_return = std::stoi( parts[1] );
-        check( min_return >= 0, ERROR_INVALID_MEMO );
-        check( symcodes.size() >= 1, ERROR_INVALID_MEMO );
-        return { symcodes, min_return };
+    if ( result.action == "swap"_n ) {
+        result.symcodes = parse_memo_symcodes( parts[2] );
+        result.min_return = std::stoi( parts[1] );
+        check( result.min_return >= 0, ERROR_INVALID_MEMO );
+        check( result.symcodes.size() >= 1, ERROR_INVALID_MEMO );
 
     // deposit action
-    } else if ( action == "deposit"_n ) {
-        const auto symcodes = parse_memo_symcodes( parts[1] );
-        check( symcodes.size() == 1, ERROR_INVALID_MEMO );
-        return { symcodes, 0 };
+    } else if ( result.action == "deposit"_n ) {
+        result.symcodes = parse_memo_symcodes( parts[1] );
+        check( result.symcodes.size() == 1, ERROR_INVALID_MEMO );
     }
-
-    return {};
+    return result;
 }
 
 vector<symbol_code> sx::curve::parse_memo_symcodes( const string memo )
