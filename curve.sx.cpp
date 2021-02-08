@@ -248,45 +248,43 @@ void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, cons
     if ( itr == _orders.end() ) _orders.emplace( get_self(), insert );
     else _orders.modify( itr, get_self(), insert );
 }
-// Memo schemas
-// ============
-// Swap: `swap,<min_return>,<pair_ids>`
-// Deposit: `deposit,<pair_id>`
-sx::curve::memo_schema sx::curve::parse_memo( const string memo )
+
+// increase/decrease amplifier of given pair id
+[[eosio::action]]
+void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier, const int64_t minutes )
 {
-    // split memo into parts
-    const vector<string> parts = sx::utils::split(memo, ",");
-    check(parts.size() <= 3, ERROR_INVALID_MEMO );
+    require_auth( get_self() );
 
-    // memo result
-    memo_schema result;
-    result.action = sx::utils::parse_name(parts[0]);
-    result.min_return = 0;
+    sx::curve::ramp_table _ramp_table( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    auto pair = _pairs.get(pair_id.raw(), "`pair_id` does not exist in `pairs`");
 
-    // swap action
-    if ( result.action == "swap"_n ) {
-        result.symcodes = parse_memo_symcodes( parts[2] );
-        result.min_return = std::stoi( parts[1] );
-        check( result.min_return >= 0, ERROR_INVALID_MEMO );
-        check( result.symcodes.size() >= 1, ERROR_INVALID_MEMO );
+    // validation
+    check( target_amplifier > 0 && target_amplifier <= MAX_AMPLIFIER, "Curve.sx: target amplifier should be within within valid range");
+    check( minutes > 0, "Curve.sx: minutes should be above 0");
+    check( minutes * 60 >= MIN_RAMP_TIME, "Curve.sx: minimum ramp timeframe must exceed " + to_string(MIN_RAMP_TIME) + " seconds");
 
-    // deposit action
-    } else if ( result.action == "deposit"_n ) {
-        result.symcodes = parse_memo_symcodes( parts[1] );
-        check( result.symcodes.size() == 1, ERROR_INVALID_MEMO );
-    }
-    return result;
+    auto insert = [&]( auto & row ) {
+        row.pair_id = pair_id;
+        row.start_amplifier = pair.amplifier;
+        row.target_amplifier = target_amplifier;
+        row.start_time = current_time_point();
+        row.end_time = current_time_point() + eosio::minutes(minutes);
+    };
+
+    auto itr = _ramp_table.find(pair_id.raw());
+    if ( itr == _ramp_table.end() ) _ramp_table.emplace( get_self(), insert );
+    else _ramp_table.modify( itr, get_self(), insert );
 }
 
-vector<symbol_code> sx::curve::parse_memo_symcodes( const string memo )
+[[eosio::action]]
+void sx::curve::stopramp( const symbol_code pair_id )
 {
-    vector<symbol_code> symcodes;
-    for ( const string str : sx::utils::split(memo, "-") ) {
-        const symbol_code symcode = sx::utils::parse_symbol_code( str );
-        check( symcode.raw(), ERROR_INVALID_MEMO );
-        symcodes.push_back( symcode );
-    }
-    return symcodes;
+    require_auth( get_self() );
+
+    sx::curve::ramp_table _ramp( get_self(), get_self().value );
+    auto & ramp = _ramp.get(pair_id.raw(), "Curve.sx: `pair_id` does not exist in `ramp` table");
+    _ramp.erase( ramp );
 }
 
 [[eosio::action]]
@@ -397,40 +395,43 @@ double sx::curve::calculate_price( const asset value0, const asset value1 )
     return static_cast<double>(amount0) / amount1;
 }
 
-// increase/decrease amplifier of given pair id
-[[eosio::action]]
-void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier, const int64_t minutes )
+// Memo schemas
+// ============
+// Swap: `swap,<min_return>,<pair_ids>`
+// Deposit: `deposit,<pair_id>`
+sx::curve::memo_schema sx::curve::parse_memo( const string memo )
 {
-    require_auth( get_self() );
+    // split memo into parts
+    const vector<string> parts = sx::utils::split(memo, ",");
+    check(parts.size() <= 3, ERROR_INVALID_MEMO );
 
-    sx::curve::ramp_table _ramp_table( get_self(), get_self().value );
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    auto pair = _pairs.get(pair_id.raw(), "`pair_id` does not exist in `pairs`");
+    // memo result
+    memo_schema result;
+    result.action = sx::utils::parse_name(parts[0]);
+    result.min_return = 0;
 
-    // validation
-    check( target_amplifier > 0 && target_amplifier <= MAX_AMPLIFIER, "Curve.sx: target amplifier should be within within valid range");
-    check( minutes > 0, "Curve.sx: minutes should be above 0");
-    check( minutes * 60 >= MIN_RAMP_TIME, "Curve.sx: minimum ramp timeframe must exceed " + to_string(MIN_RAMP_TIME) + " seconds");
+    // swap action
+    if ( result.action == "swap"_n ) {
+        result.symcodes = parse_memo_symcodes( parts[2] );
+        result.min_return = std::stoi( parts[1] );
+        check( result.min_return >= 0, ERROR_INVALID_MEMO );
+        check( result.symcodes.size() >= 1, ERROR_INVALID_MEMO );
 
-    auto insert = [&]( auto & row ) {
-        row.pair_id = pair_id;
-        row.start_amplifier = pair.amplifier;
-        row.target_amplifier = target_amplifier;
-        row.start_time = current_time_point();
-        row.end_time = current_time_point() + eosio::minutes(minutes);
-    };
-
-    auto itr = _ramp_table.find(pair_id.raw());
-    if ( itr == _ramp_table.end() ) _ramp_table.emplace( get_self(), insert );
-    else _ramp_table.modify( itr, get_self(), insert );
+    // deposit action
+    } else if ( result.action == "deposit"_n ) {
+        result.symcodes = parse_memo_symcodes( parts[1] );
+        check( result.symcodes.size() == 1, ERROR_INVALID_MEMO );
+    }
+    return result;
 }
 
-[[eosio::action]]
-void sx::curve::stopramp( const symbol_code pair_id )
+vector<symbol_code> sx::curve::parse_memo_symcodes( const string memo )
 {
-    require_auth( get_self() );
-
-    sx::curve::ramp_table _ramp( get_self(), get_self().value );
-    auto & ramp = _ramp.get(pair_id.raw(), "Curve.sx: `pair_id` does not exist in `ramp` table");
-    _ramp.erase( ramp );
+    vector<symbol_code> symcodes;
+    for ( const string str : sx::utils::split(memo, "-") ) {
+        const symbol_code symcode = sx::utils::parse_symbol_code( str );
+        check( symcode.raw(), ERROR_INVALID_MEMO );
+        symcodes.push_back( symcode );
+    }
+    return symcodes;
 }
