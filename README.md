@@ -6,7 +6,7 @@
 
 ### `convert`
 
-> memo schema: `swap,<min_return>,<pair_id>`
+> memo schema: `swap,<min_return>,<pair_ids>`
 
 ```bash
 $ cleos transfer myaccount curve.sx "10.0000 USDT" "swap,0,SXA" --contract tethertether

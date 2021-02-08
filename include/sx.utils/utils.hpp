@@ -1,7 +1,6 @@
 #pragma once
 
 #include <eosio/asset.hpp>
-
 #include <math.h>
 
 namespace sx {

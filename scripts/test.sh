@@ -12,14 +12,18 @@ cleos -v push action curve.sx createpair '["BC", ["4,B", "eosio.token"], ["9,C",
 cleos -v push action curve.sx createpair '["AC", ["4,A", "eosio.token"], ["9,C", "eosio.token"], 200]' -p curve.sx
 
 # add liquidity to pairs
-cleos transfer myaccount curve.sx "1000.0000 A" "AB"
-cleos transfer myaccount curve.sx "1000.0000 B" "AB"
+cleos transfer myaccount curve.sx "1000.0000 A" "deposit,AB"
+cleos transfer myaccount curve.sx "1000.0000 B" "deposit,AB"
 cleos push action curve.sx deposit '["myaccount", "AB"]' -p myaccount
 
-cleos transfer myaccount curve.sx "1000.0000 B" "BC"
-cleos transfer myaccount curve.sx "1000.0000 C" "BC"
+cleos transfer myaccount curve.sx "1000.0000 B" "deposit,BC"
+cleos transfer myaccount curve.sx "1000.0000 C" "deposit,BC"
 cleos push action curve.sx deposit '["myaccount", "BC"]' -p myaccount
 
-cleos transfer myaccount curve.sx "1000.0000 A" "AC"
-cleos transfer myaccount curve.sx "1000.0000 C" "AC"
+cleos transfer myaccount curve.sx "1000.0000 A" "deposit,AC"
+cleos transfer myaccount curve.sx "1000.0000 C" "deposit,AC"
 cleos push action curve.sx deposit '["myaccount", "AC"]' -p myaccount
+
+# swap
+cleos transfer myaccount curve.sx "100.0000 A" "swap,0,AC"
+cleos transfer myaccount curve.sx "100.0000 C" "swap,0,AC"

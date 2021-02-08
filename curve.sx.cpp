@@ -4,6 +4,7 @@
 
 #include "curve.sx.hpp"
 #include "src/maintenance.cpp"
+#include "src/token.cpp"
 
 /**
  * Notify contract when any token transfer notifiers relay contract
@@ -30,27 +31,28 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     if ( status == "testing"_n ) check( from.suffix() == "sx"_n, "account must be *.sx during testing period");
 
     // user input params
-    auto [ ext_min_out, receiver ] = parse_memo(memo);
-    receiver = receiver.value ? receiver : from;
-    const symbol_code symcode_memo = ext_min_out.quantity.symbol.code();
-    const extended_asset ext_in { quantity, get_first_receiver() };
-    auto pair = _pairs.find(symcode_memo.raw());
+    auto [ symcodes, min_return ] = parse_memo(memo);
+    print(symcodes[0], "-", symcodes[1], ":", min_return);
+    // receiver = receiver.value ? receiver : from;
+    // const symbol_code symcode_memo = ext_min_out.quantity.symbol.code();
+    // const extended_asset ext_in { quantity, get_first_receiver() };
+    // auto pair = _pairs.find(symcode_memo.raw());
 
-    // withdraw liquidity
-    if ( _pairs.find( quantity.symbol.code().raw() ) != _pairs.end() ) {
-        withdraw_liquidity( from, ext_in );
+    // // withdraw liquidity
+    // if ( _pairs.find( quantity.symbol.code().raw() ) != _pairs.end() ) {
+    //     withdraw_liquidity( from, ext_in );
 
-    // add liquidity
-    } else if ( pair != _pairs.end() ) {
-        check( memo == symcode_memo.to_string(), "Curve.sx: memo should contain liquidity symbol code only");
-        check( from == receiver, "Curve.sx: receiver cannot be defined when adding liquidity" );
-        add_liquidity( from, symcode_memo, ext_in );
+    // // add liquidity
+    // } else if ( pair != _pairs.end() ) {
+    //     check( memo == symcode_memo.to_string(), "Curve.sx: memo should contain liquidity symbol code only");
+    //     check( from == receiver, "Curve.sx: receiver cannot be defined when adding liquidity" );
+    //     add_liquidity( from, symcode_memo, ext_in );
 
-    // swap convert (ex: USDT => USN)
-    } else {
-        check( ext_min_out.quantity.symbol.code().raw(), "Curve.sx: memo should contain target currency");
-        convert( ext_in, ext_min_out, receiver );
-    }
+    // // swap convert (ex: USDT => USN)
+    // } else {
+    //     check( ext_min_out.quantity.symbol.code().raw(), "Curve.sx: memo should contain target currency");
+    //     // convert( ext_in, ext_min_out, receiver );
+    // }
 
     // // ramp up/down updates after swap/deposit is completed
     // update_amplifiers();
@@ -71,7 +73,7 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
 
     // get current order & pairs
     auto & pair = _pairs.get( pair_id.raw(), "Curve.sx: pair does not exist");
-    auto & orders = _orders.find( owner.value, "Curve.sx: no deposits for this user");
+    auto & orders = _orders.get( owner.value, "Curve.sx: no deposits for this user");
     check((pair.reserve0.quantity.amount && pair.reserve1.quantity.amount) || (pair.reserve0.quantity.amount==0 && pair.reserve0.quantity.amount==0), "invalid pair reserves");
     check(orders.quantity0.quantity.amount && orders.quantity1.quantity.amount, "Curve.sx: one of the currencies not provided");
 
@@ -243,33 +245,44 @@ void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, cons
     if ( itr == _orders.end() ) _orders.emplace( get_self(), insert );
     else _orders.modify( itr, get_self(), insert );
 }
-
-pair<extended_asset, name> sx::curve::parse_memo( const string memo )
+// Memo schemas
+// ============
+// Swap: `swap,<min_return>,<pair_ids>`
+// Deposit: `deposit,<pair_id>`
+pair<vector<symbol_code>, int64_t> sx::curve::parse_memo( const string memo )
 {
-    // TO-DO
-    // Drop receiver
-    name receiver;
-    auto rmemo = sx::utils::split(memo, ",");
+    // split memo into parts
+    const vector<string> parts = sx::utils::split(memo, ",");
+    check(parts.size() <= 3, ERROR_INVALID_MEMO );
+    const name action = sx::utils::parse_name(parts[0]);
 
-    check(rmemo.size() < 3, "Curve.sx: invalid memo format");
-    if ( rmemo.size() == 2 ) {
-        receiver = sx::utils::parse_name(rmemo[1]);
-        check(receiver.value, "Curve.sx: invalid receiver name in memo");
-        check(is_account(receiver), "Curve.sx: receiver account does not exist");
+    // swap action
+    if ( action == "swap"_n ) {
+        const auto symcodes = parse_memo_symcodes( parts[2] );
+        const int64_t min_return = std::stoi( parts[1] );
+        check( min_return >= 0, ERROR_INVALID_MEMO );
+        check( symcodes.size() >= 1, ERROR_INVALID_MEMO );
+        return { symcodes, min_return };
+
+    // deposit action
+    } else if ( action == "deposit"_n ) {
+        const auto symcodes = parse_memo_symcodes( parts[1] );
+        check( symcodes.size() == 1, ERROR_INVALID_MEMO );
+        return { symcodes, 0 };
     }
 
-    auto sym_code = sx::utils::parse_symbol_code(rmemo[0]);
-    if (sym_code.is_valid()) return { extended_asset{ asset{0, symbol{sym_code, 0} }, ""_n}, receiver };
-
-    auto quantity = sx::utils::parse_asset(rmemo[0]);
-    if (quantity.is_valid()) return { extended_asset{quantity, ""_n}, receiver };
-
-    auto ext_out = sx::utils::parse_extended_asset(rmemo[0]);
-    if ( ext_out.contract.value ) check( is_account( ext_out.contract ), "Curve.sx: extended asset contract account does not exist");
-    if ( ext_out.quantity.is_valid()) return { ext_out, receiver };
-
-    // check(false, "invalid memo");
     return {};
+}
+
+vector<symbol_code> sx::curve::parse_memo_symcodes( const string memo )
+{
+    vector<symbol_code> symcodes;
+    for ( const string str : sx::utils::split(memo, "-") ) {
+        const symbol_code symcode = sx::utils::parse_symbol_code( str );
+        check( symcode.raw(), ERROR_INVALID_MEMO );
+        symcodes.push_back( symcode );
+    }
+    return symcodes;
 }
 
 [[eosio::action]]
@@ -334,7 +347,7 @@ void sx::curve::createpair( const name creator, const symbol_code pair_id, const
     check( is_account( contract1 ), "reserve1 contract does not exists");
     check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "reserve0 symbol mismatch" );
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "reserve1 symbol mismatch" );
-    check( !find_pair_id( sym0.code(), sym1.code() ).is_valid(), "pair with these reserves already exists" );
+    // check( !find_pair_id( sym0.code(), sym1.code() ).is_valid(), "pair with these reserves already exists" );
     check( _pairs.find( pair_id.raw() ) == _pairs.end(), "pair id already exists" );
     check( amplifier > 0 && amplifier <= MAX_AMPLIFIER, "Curve.sx: invalid amplifier" );
 

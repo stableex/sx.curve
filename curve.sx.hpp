@@ -12,12 +12,16 @@
 using namespace eosio;
 using namespace std;
 
+// Static values
 static constexpr uint8_t MAX_PRECISION = 9;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
 static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
 static constexpr uint32_t MIN_RAMP_TIME = 60; // PRODUCTION => 86400
 static constexpr uint32_t MAX_AMPLIFIER = 1000;
+
+// Error messages
+static string ERROR_INVALID_MEMO = "Curve.sx: invalid memo (ex: \"swap,<min_return>,<pair_ids>\" or \"deposit,<pair_id>\"";
 
 namespace sx {
 class [[eosio::contract("curve.sx")]] curve : public eosio::contract {
@@ -133,6 +137,7 @@ public:
 
         uint64_t primary_key() const { return id.raw(); }
     };
+    typedef eosio::multi_index< "pairs"_n, pairs_row> pairs_table;
 
     /**
      * ## TABLE `ramp`
@@ -352,27 +357,28 @@ private:
     void retire( const extended_asset value, const string memo );
     void issue( const extended_asset value, const string memo );
 
-    // exchange {ext_in} and send to receiver
-    void convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver);
+    // // exchange {ext_in} and send to receiver
+    // void convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver);
 
     // add liquidity {value} to pool {id} for {owner}
     void add_liquidity( const name owner, const symbol_code pair_id, const extended_asset value );
     void withdraw_liquidity( const name owner, const extended_asset value );
 
     // utils
-    pair<extended_asset, name> parse_memo(const string memo);
+    pair<vector<symbol_code>, int64_t> parse_memo( const string memo );
+    vector<symbol_code> parse_memo_symcodes( const string memo );
     double calculate_price( const asset value0, const asset value1 );
     double calculate_virtual_price( const asset value0, const asset value1, const asset supply );
 
-    // find pair_id based on symbol_code of incoming tokens and memo
-    symbol_code find_pair_id( const symbol_code symcode_in, const symbol_code symcode_memo );
+    // // find pair_id based on symbol_code of incoming tokens and memo
+    // symbol_code find_pair_id( const symbol_code symcode_in, const symbol_code symcode_memo );
 
-    // find all possible paths to trade symcode_in to memo symcode, include 2-hops
-    vector<vector<symbol_code>> find_trade_paths( const symbol_code symcode_in, const symbol_code symcode_out );
+    // // find all possible paths to trade symcode_in to memo symcode, include 2-hops
+    // vector<vector<symbol_code>> find_trade_paths( const symbol_code symcode_in, const symbol_code symcode_out );
 
-    // calculate return for trade via {path}, finalize it if {finalize}==true
-    extended_asset apply_trade( const extended_asset ext_in, const vector<symbol_code>& path, bool finalize = false );
-    void update_amplifiers( );
+    // // calculate return for trade via {path}, finalize it if {finalize}==true
+    // extended_asset apply_trade( const extended_asset ext_in, const vector<symbol_code>& path, bool finalize = false );
+    // void update_amplifiers( );
 
     // MAINTENANCE (TO BE REMOVED IN PRODUCTION)
     template <typename T>
