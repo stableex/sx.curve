@@ -226,10 +226,10 @@ public:
     void stopramp( const symbol_code pair_id );
 
     [[eosio::action]]
-    void liquiditylog( const symbol_code pair_id, const name owner, const extended_asset liquidity, const extended_asset quantity0, const extended_asset quantity1, const extended_asset total_liquidity, const extended_asset reserve0, const extended_asset reserve1 );
+    void liquiditylog( const symbol_code pair_id, const name owner, const name action, const asset liquidity, const asset quantity0, const asset quantity1, const asset total_liquidity, const asset reserve0, const asset reserve1 );
 
     [[eosio::action]]
-    void swaplog( const symbol_code pair_id, const name owner, const extended_asset quantity_in, const extended_asset quantity_out, const extended_asset fee, const double trade_price, const extended_asset reserve0, const extended_asset reserve1 );
+    void swaplog( const symbol_code pair_id, const name owner, const name action, const asset quantity_in, const asset quantity_out, const asset fee, const double trade_price, const asset reserve0, const asset reserve1 );
 
     using liquiditylog_action = eosio::action_wrapper<"liquiditylog"_n, &sx::curve::liquiditylog>;
     using swaplog_action = eosio::action_wrapper<"swaplog"_n, &sx::curve::swaplog>;

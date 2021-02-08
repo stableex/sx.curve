@@ -114,7 +114,7 @@ extended_asset sx::curve::apply_trade( const name owner, const extended_asset ex
 
             // swap log
             sx::curve::swaplog_action swaplog( get_self(), { get_self(), "active"_n });
-            swaplog.send( pair_id, owner, ext_in, ext_out, fee, price, row.reserve0, row.reserve1 );
+            swaplog.send( pair_id, owner, "swap"_n, ext_in.quantity, ext_out.quantity, fee.quantity, price, row.reserve0.quantity, row.reserve1.quantity );
         });
         // send protocol fees
         if ( protocol_fee.quantity.amount ) transfer( get_self(), config.fee_account, protocol_fee, "Curve.sx: protocol fee");
@@ -202,7 +202,7 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
 
         // log liquidity change
         sx::curve::liquiditylog_action liquiditylog( get_self(), { get_self(), "active"_n });
-        liquiditylog.send( pair_id, owner, issued, orders.quantity0, orders.quantity1, row.liquidity, row.reserve0, row.reserve1 );
+        liquiditylog.send( pair_id, owner, "deposit"_n, issued.quantity, orders.quantity0.quantity, orders.quantity1.quantity, row.liquidity.quantity, row.reserve0.quantity, row.reserve1.quantity );
     });
 
     // issue & transfer to owner
@@ -283,11 +283,11 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
 
         // log liquidity change
         sx::curve::liquiditylog_action liquiditylog( get_self(), { get_self(), "active"_n });
-        liquiditylog.send( pair_id, owner, value, out0, out1, row.liquidity, row.reserve0, row.reserve1 );
+        liquiditylog.send( pair_id, owner, "withdraw"_n, value.quantity, out0.quantity, out1.quantity, row.liquidity.quantity, row.reserve0.quantity, row.reserve1.quantity );
     });
 
     // issue & transfer to owner
-    retire( value, "withdraw" );
+    retire( value, "Curve.sx: withdraw" );
     if ( out0.quantity.amount ) transfer( get_self(), owner, out0, "Curve.sx: withdraw");
     if ( out1.quantity.amount ) transfer( get_self(), owner, out1, "Curve.sx: withdraw");
 }

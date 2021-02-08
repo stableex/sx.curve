@@ -1,5 +1,5 @@
 [[eosio::action]]
-void sx::curve::liquiditylog( const symbol_code pair_id, const name owner, const extended_asset liquidity, const extended_asset quantity0,  const extended_asset quantity1, const extended_asset total_liquidity, const extended_asset reserve0, const extended_asset reserve1 )
+void sx::curve::liquiditylog( const symbol_code pair_id, const name owner, const name action, const asset liquidity, const asset quantity0,  const asset quantity1, const asset total_liquidity, const asset reserve0, const asset reserve1 )
 {
     require_auth( get_self() );
     if ( is_account( "stats.sx"_n ) ) require_recipient( "stats.sx"_n );
@@ -7,7 +7,7 @@ void sx::curve::liquiditylog( const symbol_code pair_id, const name owner, const
 }
 
 [[eosio::action]]
-void sx::curve::swaplog( const symbol_code pair_id, const name owner, const extended_asset quantity_in, const extended_asset quantity_out, const extended_asset fee, const double trade_price, const extended_asset reserve0, const extended_asset reserve1 )
+void sx::curve::swaplog( const symbol_code pair_id, const name owner, const name action, const asset quantity_in, const asset quantity_out, const asset fee, const double trade_price, const asset reserve0, const asset reserve1 )
 {
     require_auth( get_self() );
     if ( is_account( "stats.sx"_n ) ) require_recipient( "stats.sx"_n );
