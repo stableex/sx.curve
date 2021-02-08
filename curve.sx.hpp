@@ -175,7 +175,7 @@ public:
      * ## STRUCT `memo_schema`
      *
      * - `{name} action` - action name ("swap", "deposit")
-     * - `{vector<symbol_code>} symcodes` - symbol codes pair ids
+     * - `{vector<symbol_code>} pair_ids` - symbol codes pair ids
      * - `{int64_t} min_return` - minimum return amount expected
      *
      * ### example
@@ -183,14 +183,14 @@ public:
      * ```json
      * {
      *   "action": "swap",
-     *   "symcodes": ["AB", "BC"],
+     *   "pair_ids": ["AB", "BC"],
      *   "min_return": 100
      * }
      * ```
      */
     struct memo_schema {
         name                    action;
-        vector<symbol_code>     symcodes;
+        vector<symbol_code>     pair_ids;
         int64_t                 min_return;
     };
 
@@ -390,7 +390,8 @@ private:
     void issue( const extended_asset value, const string memo );
 
     // // exchange {ext_in} and send to receiver
-    // void convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver);
+    void convert( const name receiver, const extended_asset ext_in, const vector<symbol_code> pair_ids, const int64_t min_return );
+    extended_asset apply_trade( const extended_asset ext_quantity, const vector<symbol_code> pair_ids );
 
     // add liquidity {value} to pool {id} for {owner}
     void add_liquidity( const name owner, const symbol_code pair_id, const extended_asset value );
@@ -398,7 +399,7 @@ private:
 
     // utils
     memo_schema parse_memo( const string memo );
-    vector<symbol_code> parse_memo_symcodes( const string memo );
+    vector<symbol_code> parse_memo_pair_ids( const string memo );
     double calculate_price( const asset value0, const asset value1 );
     double calculate_virtual_price( const asset value0, const asset value1, const asset supply );
 

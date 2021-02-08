@@ -34,22 +34,89 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     const auto parsed_memo = parse_memo( memo );
     const extended_asset ext_in = { quantity, get_first_receiver() };
 
-    // withdraw liquidity
+    // withdraw liquidity (no memo required)
     if ( _pairs.find( quantity.symbol.code().raw() ) != _pairs.end() ) {
         withdraw_liquidity( from, ext_in );
 
-    // add liquidity
+    // add liquidity (memo required => "deposit,<pair_id>")
     } else if ( parsed_memo.action == "deposit"_n ) {
-        add_liquidity( from, parsed_memo.symcodes[0], ext_in );
+        add_liquidity( from, parsed_memo.pair_ids[0], ext_in );
 
-    // swap convert (ex: USDT => USN)
+    // swap convert (memo required => "swap,<min_return>,<pair_ids>")
     } else if ( parsed_memo.action == "swap"_n) {
-        // convert( from, ext_in, parsed_memo.symcodes, parsed_memo.min_return );
-        print( from, ext_in, parsed_memo.symcodes[0], "-", parsed_memo.symcodes[1], ":", parsed_memo.min_return);
+        convert( from, ext_in, parsed_memo.pair_ids, parsed_memo.min_return );
 
     } else {
         check( false, ERROR_INVALID_MEMO );
     }
+}
+
+void sx::curve::convert( const name receiver, const extended_asset ext_in, const vector<symbol_code> pair_ids, const int64_t min_return )
+{
+    // execute the trade by updating all involved pools
+    const extended_asset out = apply_trade( ext_in, pair_ids );
+
+    // enforce minimum return (slippage protection)
+    check(out.quantity.amount != 0 && out.quantity.amount >= min_return, "Curve.sx: invalid minimum return");
+
+    // transfer amount to receiver
+    transfer( get_self(), receiver, out, "Curve.sx: swap token" );
+}
+
+extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const vector<symbol_code> pair_ids )
+{
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    sx::curve::config_table _config( get_self(), get_self().value );
+    auto config = _config.get();
+
+    // initial quantities
+    extended_asset ext_out;
+    extended_asset ext_in = ext_quantity;
+
+    // iterate over each liquidity pool per each `pair_id` provided in swap memo
+    for ( const symbol_code pair_id : pair_ids ) {
+        const auto& pairs = _pairs.get( pair_id.raw(), "Curve.sx: `pair_id` does not exist");
+        const bool is_in = pairs.reserve0.quantity.symbol == ext_in.quantity.symbol;
+        const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
+        const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
+
+        // validate input quantity & reserves
+        check(reserve_in.get_extended_symbol() == ext_in.get_extended_symbol(), "Curve.sx: incoming currency/reserves contract mismatch");
+        check(reserve_in.quantity.amount != 0 && reserve_out.quantity.amount != 0, "Curve.sx: empty pool reserves");
+
+        // calculate out
+        ext_out = { get_amount_out( ext_in.quantity, pair_id ), reserve_out.contract };
+
+        // send protocol fees to fee account
+        const extended_asset protocol_out = { ext_in.quantity.amount * config.protocol_fee / 10000, ext_in.get_extended_symbol() };
+
+        // modify reserves
+        _pairs.modify( pairs, get_self(), [&]( auto & row ) {
+            if ( is_in ) {
+                row.reserve0.quantity += ext_in.quantity - protocol_out.quantity;
+                row.reserve1.quantity -= ext_out.quantity;
+                row.volume0 += ext_in.quantity;
+            } else {
+                row.reserve1.quantity += ext_in.quantity - protocol_out.quantity;
+                row.reserve0.quantity -= ext_out.quantity;
+                row.volume1 += ext_in.quantity;
+            }
+            // calculate last price
+            const double price = calculate_price( ext_in.quantity, ext_out.quantity );
+            row.virtual_price = calculate_virtual_price( row.reserve0.quantity, row.reserve1.quantity, row.liquidity.quantity );
+            row.price0_last = is_in ? 1 / price : price;
+            row.price1_last = is_in ? price : 1 / price;
+            row.trades += 1;
+            row.last_updated = current_time_point();
+        });
+        // send protocol fees
+        if ( protocol_out.quantity.amount ) transfer( get_self(), config.fee_account, protocol_out, "Curve.sx: protocol fee");
+
+        // swap input as output to prepare for next conversion
+        ext_in = ext_out;
+    }
+
+    return ext_out;
 }
 
 [[eosio::action]]
@@ -397,8 +464,8 @@ double sx::curve::calculate_price( const asset value0, const asset value1 )
 
 // Memo schemas
 // ============
-// Swap: `swap,<min_return>,<pair_ids>`
-// Deposit: `deposit,<pair_id>`
+// Swap: `swap,<min_return>,<pair_ids>` (ex: "swap,0,SXA" )
+// Deposit: `deposit,<pair_id>` (ex: "deposit,SXA")
 sx::curve::memo_schema sx::curve::parse_memo( const string memo )
 {
     // split memo into parts
@@ -412,26 +479,33 @@ sx::curve::memo_schema sx::curve::parse_memo( const string memo )
 
     // swap action
     if ( result.action == "swap"_n ) {
-        result.symcodes = parse_memo_symcodes( parts[2] );
+        result.pair_ids = parse_memo_pair_ids( parts[2] );
         result.min_return = std::stoi( parts[1] );
         check( result.min_return >= 0, ERROR_INVALID_MEMO );
-        check( result.symcodes.size() >= 1, ERROR_INVALID_MEMO );
+        check( result.pair_ids.size() >= 1, ERROR_INVALID_MEMO );
 
     // deposit action
     } else if ( result.action == "deposit"_n ) {
-        result.symcodes = parse_memo_symcodes( parts[1] );
-        check( result.symcodes.size() == 1, ERROR_INVALID_MEMO );
+        result.pair_ids = parse_memo_pair_ids( parts[1] );
+        check( result.pair_ids.size() == 1, ERROR_INVALID_MEMO );
     }
     return result;
 }
 
-vector<symbol_code> sx::curve::parse_memo_symcodes( const string memo )
+// Memo schemas
+// ============
+// Single: `<pair_id>` (ex: "SXA")
+// Multiple: `<pair_id>-<pair_id>` (ex: "SXA-SXB")
+vector<symbol_code> sx::curve::parse_memo_pair_ids( const string memo )
 {
-    vector<symbol_code> symcodes;
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+
+    vector<symbol_code> pair_ids;
     for ( const string str : sx::utils::split(memo, "-") ) {
         const symbol_code symcode = sx::utils::parse_symbol_code( str );
         check( symcode.raw(), ERROR_INVALID_MEMO );
-        symcodes.push_back( symcode );
+        check( _pairs.find( symcode.raw() ) != _pairs.end(), "Curve.sx: `pair_id` does not exist");
+        pair_ids.push_back( symcode );
     }
-    return symcodes;
+    return pair_ids;
 }
