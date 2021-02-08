@@ -480,7 +480,7 @@ sx::curve::memo_schema sx::curve::parse_memo( const string memo )
     // swap action
     if ( result.action == "swap"_n ) {
         result.pair_ids = parse_memo_pair_ids( parts[2] );
-        result.min_return = std::stoi( parts[1] );
+        result.min_return = std::stoll( parts[1] );
         check( result.min_return >= 0, ERROR_INVALID_MEMO );
         check( result.pair_ids.size() >= 1, ERROR_INVALID_MEMO );
 
