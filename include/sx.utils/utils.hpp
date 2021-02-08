@@ -145,7 +145,6 @@ namespace utils {
         return tokens;
     }
 
-
     /**
      * ## STATIC `parse_name`
      *
@@ -366,7 +365,7 @@ namespace utils {
 
         const name contract = parse_name(ext_tokens[1]);
         const asset quantity = parse_asset(ext_tokens[0]);
-        if(!quantity.is_valid()) return {};
+        if (!quantity.is_valid()) return {};
 
         return extended_asset {quantity, contract};
     }

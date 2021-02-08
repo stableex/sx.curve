@@ -132,15 +132,7 @@ public:
         time_point_sec      last_updated;
 
         uint64_t primary_key() const { return id.raw(); }
-        uint128_t by_reserves() const { return compute_by_symcodes( reserve0.quantity.symbol.code(), reserve1.quantity.symbol.code() ); }
     };
-    typedef eosio::multi_index< "pairs"_n, pairs_row,
-        indexed_by<"byreserves"_n, const_mem_fun<pairs_row, uint128_t, &pairs_row::by_reserves>>
-    > pairs_table;
-
-    static uint128_t compute_by_symcodes( const symbol_code symcode0, const symbol_code symcode1 ) {
-        return ((uint128_t) symcode0.raw()) << 64 | symcode1.raw();
-    }
 
     /**
      * ## TABLE `ramp`
@@ -186,7 +178,7 @@ public:
 
     // ADMIN
     [[eosio::action]]
-    void createpair( const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier );
+    void createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier );
 
     [[eosio::action]]
     void removepair( const symbol_code pair_id );

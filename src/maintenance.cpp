@@ -16,11 +16,14 @@ void sx::curve::reset( const name table )
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     sx::curve::backup_table _backup( get_self(), get_self().value );
     sx::curve::orders_table _orders( get_self(), get_self().value );
+    sx::curve::ramp_table _ramp( get_self(), get_self().value );
 
     if ( table == "config"_n ) _config.remove();
-    if ( table == "pairs"_n ) clear_table( _pairs );
-    if ( table == "orders"_n ) clear_table( _orders );
-    if ( table == "backup"_n ) clear_table( _backup );
+    else if ( table == "pairs"_n ) clear_table( _pairs );
+    else if ( table == "orders"_n ) clear_table( _orders );
+    else if ( table == "backup"_n ) clear_table( _backup );
+    else if ( table == "ramp"_n ) clear_table( _ramp );
+    else check( false, "reset not available");
 }
 
 template <typename T>

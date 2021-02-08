@@ -17,8 +17,11 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     // ignore transfers
     if ( to != get_self() || memo == get_self().to_string() || from == "eosio.ram"_n) return;
 
-    // config
+    // tables
     sx::curve::config_table _config( get_self(), get_self().value );
+    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+
+    // config
     check( _config.exists(), "Curve.sx: contract must first be initialized");
     const name status = _config.get_or_default().status;
     check( (status == "ok"_n || status == "testing"_n), "Curve.sx: contract is under maintenance");
@@ -30,29 +33,27 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     auto [ ext_min_out, receiver ] = parse_memo(memo);
     receiver = receiver.value ? receiver : from;
     const symbol_code symcode_memo = ext_min_out.quantity.symbol.code();
-    const extended_asset ext_in {quantity, get_first_receiver()};
-
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    auto itr = _pairs.find(symcode_memo.raw());
+    const extended_asset ext_in { quantity, get_first_receiver() };
+    auto pair = _pairs.find(symcode_memo.raw());
 
     // withdraw liquidity
     if ( _pairs.find( quantity.symbol.code().raw() ) != _pairs.end() ) {
         withdraw_liquidity( from, ext_in );
+
     // add liquidity
-    } else if (itr != _pairs.end()) {
-        // add liquidity
+    } else if ( pair != _pairs.end() ) {
         check( memo == symcode_memo.to_string(), "Curve.sx: memo should contain liquidity symbol code only");
         check( from == receiver, "Curve.sx: receiver cannot be defined when adding liquidity" );
         add_liquidity( from, symcode_memo, ext_in );
-    }
+
     // swap convert (ex: USDT => USN)
-    else {
+    } else {
         check( ext_min_out.quantity.symbol.code().raw(), "Curve.sx: memo should contain target currency");
-        convert(ext_in, ext_min_out, receiver);
+        convert( ext_in, ext_min_out, receiver );
     }
 
-    // ramp up/down updates after swap/deposit is completed
-    update_amplifiers();
+    // // ramp up/down updates after swap/deposit is completed
+    // update_amplifiers();
 }
 
 [[eosio::action]]
@@ -70,15 +71,16 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
 
     // get current order & pairs
     auto & pair = _pairs.get( pair_id.raw(), "Curve.sx: pair does not exist");
-    auto itr = _orders.find( owner.value );
-    check( itr != _orders.end(), "Curve.sx: no deposits for this user");
+    auto & orders = _orders.find( owner.value, "Curve.sx: no deposits for this user");
     check((pair.reserve0.quantity.amount && pair.reserve1.quantity.amount) || (pair.reserve0.quantity.amount==0 && pair.reserve0.quantity.amount==0), "invalid pair reserves");
-    check(itr->quantity0.quantity.amount && itr->quantity1.quantity.amount, "Curve.sx: one of the currencies not provided");
+    check(orders.quantity0.quantity.amount && orders.quantity1.quantity.amount, "Curve.sx: one of the currencies not provided");
 
+    // symbol helpers
     const symbol sym0 = pair.reserve0.quantity.symbol;
     const symbol sym1 = pair.reserve1.quantity.symbol;
 
     // calculate total deposits based on reserves
+    // if reserves empty, fallback to 1
     const int64_t supply = mul_amount(pair.liquidity.quantity.amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision());
     const int64_t reserve0 = pair.reserve0.quantity.amount ? mul_amount(pair.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
     const int64_t reserve1 = pair.reserve1.quantity.amount ? mul_amount(pair.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
@@ -87,56 +89,40 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     const double reserve_ratio1 = double(reserve1) / reserves;
 
     // get owner order and calculate payment
-    const int64_t amount0 = mul_amount(itr->quantity0.quantity.amount, MAX_PRECISION, sym0.precision());
-    const int64_t amount1 = mul_amount(itr->quantity1.quantity.amount, MAX_PRECISION, sym1.precision());
+    const int64_t amount0 = mul_amount(orders.quantity0.quantity.amount, MAX_PRECISION, sym0.precision());
+    const int64_t amount1 = mul_amount(orders.quantity1.quantity.amount, MAX_PRECISION, sym1.precision());
     const int64_t payment = amount0 + amount1;
     const double amount_ratio0 = double(amount0) / payment;
     const double amount_ratio1 = double(amount1) / payment;
 
-    //actual amounts to deposit
+    // actual amounts to deposit
     int64_t deposit0 = amount0;
     int64_t deposit1 = amount1;
 
-    print( "\nexisting supply: " + to_string(supply) + "\n");
-    print( "existing reserve0: " + to_string(reserve0) + "\n");
-    print( "existing reserve1: " + to_string(reserve1) + "\n");
-    print( "reserve_ratio0: " + to_string(reserve_ratio0) + "\n");
-    print( "reserve_ratio1: " + to_string(reserve_ratio1) + "\n");
-    print( "reserves: " + to_string(reserves) + "\n");
-    print( "payment: " + to_string(payment) + "\n");
-    print( "amount_ratio0: " + to_string(amount_ratio0) + "\n");
-    print( "amount_ratio1: " + to_string(amount_ratio1) + "\n");
-    print( "incoming amount0: " + to_string(amount0) + "\n");
-    print( "incoming amount1: " + to_string(amount1) + "\n");
-
+    // ??? BETTER DESCRIPTION ???
+    // calculate excess deposit
     if (amount_ratio0 <= reserve_ratio0) deposit1 = ((uint128_t) amount0) * reserve1 / reserve0;
     else deposit0 = ((uint128_t) amount1) * reserve0 / reserve1;
 
-    print( "to deposit0: " + to_string(deposit0) + "\n");
-    print( "to deposit1: " + to_string(deposit1) + "\n");
-
+    // send back excess deposit to owner
     if (deposit0 < amount0) {
         const int64_t excess_amount = div_amount(amount0, MAX_PRECISION, sym0.precision()) - div_amount(deposit0, MAX_PRECISION, sym0.precision());
         const extended_asset excess = { excess_amount, pair.reserve0.get_extended_symbol() };
         transfer( get_self(), owner, excess, "Curve.sx: excess");
-        print("\nSending excess ", excess, " to ", owner);
     }
     if (deposit1 < amount1) {
         const int64_t excess_amount = div_amount(amount1, MAX_PRECISION, sym1.precision()) - div_amount(deposit1, MAX_PRECISION, sym1.precision());
         const extended_asset excess = { excess_amount, pair.reserve1.get_extended_symbol() };
         transfer( get_self(), owner, excess, "Curve.sx: excess");
-        print("\nSending excess ", excess, " to ", owner);
     }
 
+    // normalize final deposits
     const extended_asset ext_deposit0 = { div_amount(deposit0, MAX_PRECISION, sym0.precision()), pair.reserve0.get_extended_symbol()};
     const extended_asset ext_deposit1 = { div_amount(deposit1, MAX_PRECISION, sym1.precision()), pair.reserve1.get_extended_symbol()};
 
     // issue liquidity
     const int64_t issued_amount = rex::issue(deposit0 + deposit1, reserves, supply, 1);
     const extended_asset issued = { div_amount(issued_amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision()), pair.liquidity.get_extended_symbol()};
-
-    print( "\nDepositing: ", ext_deposit0, " + ", ext_deposit1);
-    print( "\nIssuing ", issued, " and sending to ", owner);
 
     // add liquidity deposits & newly issued liquidity
     _pairs.modify(pair, get_self(), [&]( auto & row ) {
@@ -150,8 +136,7 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     transfer( get_self(), owner, issued, "Curve.sx: deposit");
 
     // delete any remaining liquidity deposit order
-    // check(false, "see dev print");
-    _orders.erase( itr );
+    _orders.erase( orders );
 }
 
 // returns any remaining orders to owner account
@@ -161,12 +146,11 @@ void sx::curve::cancel( const name owner, const symbol_code pair_id )
     if ( !has_auth( get_self() )) require_auth( owner );
 
     sx::curve::orders_table _orders( get_self(), pair_id.raw() );
-    auto itr = _orders.find( owner.value );
-    check( itr != _orders.end(), "Curve.sx: no deposits for this user in this pool");
-    if ( itr->quantity0.quantity.amount ) transfer( get_self(), owner, itr->quantity0, "Curve.sx: cancel");
-    if ( itr->quantity1.quantity.amount ) transfer( get_self(), owner, itr->quantity1, "Curve.sx: cancel");
+    auto & orders = _orders.get( owner.value, "Curve.sx: no deposits for this user in this pool");
+    if ( orders.quantity0.quantity.amount ) transfer( get_self(), owner, orders.quantity0, "Curve.sx: cancel");
+    if ( orders.quantity1.quantity.amount ) transfer( get_self(), owner, orders.quantity1, "Curve.sx: cancel");
 
-    _orders.erase( itr );
+    _orders.erase( orders );
 }
 
 [[eosio::action]]
@@ -205,32 +189,16 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
     const int64_t payment = mul_amount(value.quantity.amount, MAX_PRECISION, value.quantity.symbol.precision());
     const int64_t retire_amount = rex::retire( payment, reserves, supply );
 
-    // // get owner order and calculate payment
+    // get owner order and calculate payment
     int64_t amount0 = retire_amount * reserve_ratio0;
     int64_t amount1 = retire_amount * reserve_ratio1;
-    if(amount0 == reserve0 || amount1 == reserve1){         //deal with rounding error on final withdrawal
+    if (amount0 == reserve0 || amount1 == reserve1) {         //deal with rounding error on final withdrawal
         amount0 = reserve0;
         amount1 = reserve1;
     }
     const extended_asset out0 = { div_amount(amount0, MAX_PRECISION, sym0.precision()), ext_sym0 };
     const extended_asset out1 = { div_amount(amount1, MAX_PRECISION, sym1.precision()), ext_sym1 };
     check( out0.quantity.amount || out1.quantity.amount, "Curve.sx: withdraw amount too small");
-
-    print( "\nexisting supply: ", supply, "\n");
-    print( "existing reserve0: ", reserve0, "\n");
-    print( "existing reserve1: ", reserve1, "\n");
-    print( "reserve_ratio0: ", reserve_ratio0, "\n");
-    print( "reserve_ratio1: ", reserve_ratio1, "\n");
-    print( "reserves: ", reserves, "\n");
-    print( "payment: ", payment, "\n");
-    print( "retire_amount: ", retire_amount, "\n");
-    print( "outgoing amount0: ", amount0, "\n");
-    print( "outgoing amount1: ", amount1, "\n");
-    print( "outgoing out0: ", out0, "\n");
-    print( "outgoing out1: ", out1, "\n");
-
-    print( "\nDepositing: ", value);
-    print( "\nWithdrawing ", out0, " + ", out1, " to ", owner);
 
     // add liquidity deposits & newly issued liquidity
     _pairs.modify(pair, get_self(), [&]( auto & row ) {
@@ -276,36 +244,10 @@ void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, cons
     else _orders.modify( itr, get_self(), insert );
 }
 
-void sx::curve::convert(const extended_asset ext_in, const extended_asset ext_min_out, name receiver)
+pair<extended_asset, name> sx::curve::parse_memo( const string memo )
 {
-    // find all possible trade paths
-    auto paths = find_trade_paths( ext_in.quantity.symbol.code(), ext_min_out.quantity.symbol.code() );
-    check(paths.size(), "Curve.sx: no path for exchange");
-
-    // choose trade path that gets the best return
-    auto best_path = paths[0];
-    extended_asset best_out;
-    for (const auto& path: paths) {
-        auto out = apply_trade(ext_in, path);
-        if (out.quantity.amount > best_out.quantity.amount) {
-            best_path = path;
-            best_out = out;
-        }
-    }
-    check(best_out.quantity.amount, "Curve.sx: no matching exchange");
-    check(ext_min_out.contract.value == 0 || ext_min_out.contract == best_out.contract, "Curve.sx: reserve_out vs memo contract mismatch");
-    check(ext_min_out.quantity.amount == 0 || ext_min_out.quantity.symbol == best_out.quantity.symbol, "Curve.sx: return vs memo symbol precision mismatch");
-    check(ext_min_out.quantity.amount == 0 || ext_min_out.quantity.amount <= best_out.quantity.amount, "Curve.sx: return is not enough");
-
-    // execute the trade by updating all involved pools
-    best_out = apply_trade(ext_in, best_path, true);
-
-    // transfer amount to receiver
-    transfer( get_self(), receiver, best_out, "Curve.sx: swap token" );
-}
-
-pair<extended_asset, name> sx::curve::parse_memo(const string memo){
-
+    // TO-DO
+    // Drop receiver
     name receiver;
     auto rmemo = sx::utils::split(memo, ",");
 
@@ -330,36 +272,23 @@ pair<extended_asset, name> sx::curve::parse_memo(const string memo){
     return {};
 }
 
-// find pair_id based on symbol_code of incoming and target tokens
-symbol_code sx::curve::find_pair_id( const symbol_code symcode_in, const symbol_code symcode_out )
-{
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-
-    // find by combination of input quantity & memo symbol
-    auto _pairs_by_reserves = _pairs.get_index<"byreserves"_n>();
-    auto itr = _pairs_by_reserves.find( compute_by_symcodes( symcode_in, symcode_out ) );
-    if ( itr != _pairs_by_reserves.end() ) return itr->id;
-
-    itr = _pairs_by_reserves.find( compute_by_symcodes( symcode_out, symcode_in ) );
-    if ( itr != _pairs_by_reserves.end() ) return itr->id;
-
-    // nothing found - return empty
-    return {};
-}
-
 [[eosio::action]]
 void sx::curve::setfee( const uint8_t trade_fee, const optional<uint8_t> protocol_fee, const optional<name> fee_account )
 {
     require_auth( get_self() );
 
+    // config
     sx::curve::config_table _config( get_self(), get_self().value );
     auto config = _config.get_or_default();
-    check( trade_fee + *protocol_fee <= 30, "`trade_fee` + `protocol_fee` cannot exceed 0.3%");
+
+    // required params
+    check( trade_fee + *protocol_fee <= 300, "`trade_fee` + `protocol_fee` cannot exceed 3%");
 
     // optional params
     if ( fee_account->value ) check( is_account( *fee_account ), "`fee_account` does not exist");
     if ( *protocol_fee ) check( fee_account->value, "must provide `fee_account` if `protocol_fee` is defined");
 
+    // set config
     config.trade_fee = trade_fee;
     config.protocol_fee = *protocol_fee;
     config.fee_account = *fee_account;
@@ -378,11 +307,21 @@ void sx::curve::setstatus( const name status )
 }
 
 [[eosio::action]]
-void sx::curve::createpair( const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier )
+void sx::curve::createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier )
 {
-    require_auth( get_self() );
+    // `creator` must be contract itself during beta period
+    if ( !has_auth( get_self() ) ) check( false, "`creator` is disabled from creating pair during beta period");
+    require_auth( creator );
 
+    // =======
+    //  TO-DO
+    // =======
+    // 1. create liquidity from incremental `pair_id` ( 1 => SXA, 2 => SXB, 27 => SXAA )
+    // 2. auto increment `config::pair_id`
+
+    // tables
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    sx::curve::config_table _config( get_self(), get_self().value );
 
     // reserve params
     const name contract0 = reserve0.get_contract();
@@ -412,7 +351,7 @@ void sx::curve::createpair( const symbol_code pair_id, const extended_symbol res
     else check( !stats_itr->supply.amount, "`createpair` requires zero existing supply" );
 
     // create pair
-    _pairs.emplace( get_self(), [&]( auto & row ) {
+    _pairs.emplace( creator, [&]( auto & row ) {
         row.id = pair_id;
         row.reserve0 = { 0, reserve0 };
         row.reserve1 = { 0, reserve1 };
@@ -424,91 +363,7 @@ void sx::curve::createpair( const symbol_code pair_id, const extended_symbol res
     });
 }
 
-// find all possible paths to exchange symcode_in to memo symcode, include 2-hops
-vector<vector<symbol_code>> sx::curve::find_trade_paths( const symbol_code symcode_in, const symbol_code symcode_out )
-{
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    check( symcode_in != symcode_out, "Curve.sx: onversion target symbol must not match incoming symbol");
-
-    // find first valid hop
-    vector<vector<symbol_code>> paths;
-    vector<pair<symbol_code, symbol_code>> hop_one;     // {pair id, first hop symbol_code}
-    for (const auto& row : _pairs) {
-        symbol_code sc1 = row.reserve0.quantity.symbol.code();
-        symbol_code sc2 = row.reserve1.quantity.symbol.code();
-
-        if (sc1 != symcode_in) std::swap(sc1, sc2);
-        if (sc1 != symcode_in) continue;
-        if (sc2 == symcode_out) paths.push_back({row.id});  //direct path
-        else hop_one.push_back({row.id, sc2});
-    }
-
-    // find all possible second hops
-    for(const auto& [id1, sc_in] : hop_one) {
-        auto id2 = find_pair_id(sc_in, symcode_out);
-        if(id2.is_valid()) paths.push_back({id1, id2});
-    }
-
-    return paths;
-}
-
-extended_asset sx::curve::apply_trade( const extended_asset ext_quantity, const vector<symbol_code>& path, const bool finalize /*=false*/ )
-{
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    sx::curve::config_table _config( get_self(), get_self().value );
-    auto config = _config.get();
-
-    extended_asset ext_out, ext_in = ext_quantity;
-    check( path.size(), "exchange path is empty");
-    for (auto pair_id : path) {
-        const auto& pairs = _pairs.get( pair_id.raw(), "pair id does not exist");
-        const bool is_in = pairs.reserve0.quantity.symbol == ext_in.quantity.symbol;
-        const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
-        const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
-
-        if (reserve_in.get_extended_symbol() != ext_in.get_extended_symbol()) {
-            check(!finalize, "incoming currency/reserves contract mismatch");
-            return {};
-        }
-        if (reserve_in.quantity.amount == 0 || reserve_out.quantity.amount == 0) {
-            check(!finalize, "empty pool reserves");
-            return {};
-        }
-        // calculate out
-        ext_out = { get_amount_out( ext_in.quantity, pair_id ), reserve_out.contract };
-
-        if (finalize) {
-            // send protocol fees to fee account
-            const extended_asset protocol_out = { ext_in.quantity.amount * config.protocol_fee / 10000, ext_in.get_extended_symbol() };
-
-            // modify reserves
-            _pairs.modify( pairs, get_self(), [&]( auto & row ) {
-                if ( is_in ) {
-                    row.reserve0.quantity += ext_in.quantity - protocol_out.quantity;
-                    row.reserve1.quantity -= ext_out.quantity;
-                    row.volume0 += ext_in.quantity;
-                } else {
-                    row.reserve1.quantity += ext_in.quantity - protocol_out.quantity;
-                    row.reserve0.quantity -= ext_out.quantity;
-                    row.volume1 += ext_in.quantity;
-                }
-                // calculate last price
-                const double price = calculate_price( ext_in.quantity, ext_out.quantity );
-                row.virtual_price = calculate_virtual_price( row.reserve0.quantity, row.reserve1.quantity, row.liquidity.quantity );
-                row.price0_last = is_in ? 1 / price : price;
-                row.price1_last = is_in ? price : 1 / price;
-                row.trades += 1;
-                row.last_updated = current_time_point();
-            });
-            // send protocol fees
-            if ( protocol_out.quantity.amount ) transfer( get_self(), config.fee_account, protocol_out, "Curve.sx: protocol fee");
-        }
-        ext_in = ext_out;
-    }
-
-    return ext_out;
-}
-
+// calculate reserve amounts relative to supply
 double sx::curve::calculate_virtual_price( const asset value0, const asset value1, const asset supply )
 {
     const int64_t amount0 = mul_amount( value0.amount, MAX_PRECISION, value0.symbol.precision() );
@@ -517,6 +372,7 @@ double sx::curve::calculate_virtual_price( const asset value0, const asset value
     return static_cast<double>( amount0 + amount1 ) / amount2;
 }
 
+// calculate last price per trade
 double sx::curve::calculate_price( const asset value0, const asset value1 )
 {
     const int64_t amount0 = mul_amount( value0.amount, MAX_PRECISION, value0.symbol.precision() );
@@ -524,6 +380,7 @@ double sx::curve::calculate_price( const asset value0, const asset value1 )
     return static_cast<double>(amount0) / amount1;
 }
 
+// increase/decrease amplifier of given pair id
 [[eosio::action]]
 void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier, const int64_t minutes )
 {
@@ -533,11 +390,10 @@ void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     auto pair = _pairs.get(pair_id.raw(), "`pair_id` does not exist in `pairs`");
 
+    // validation
     check( target_amplifier > 0 && target_amplifier <= MAX_AMPLIFIER, "Curve.sx: target amplifier should be within within valid range");
     check( minutes > 0, "Curve.sx: minutes should be above 0");
     check( minutes * 60 >= MIN_RAMP_TIME, "Curve.sx: minimum ramp timeframe must exceed " + to_string(MIN_RAMP_TIME) + " seconds");
-    // check(timestamp > current_time_point(), "timestamp must be in the future");
-    // check(timestamp.sec_since_epoch() - current_time_point().sec_since_epoch() >= MIN_RAMP_TIME, "timestamp must meet minimum ramp time requirements of " + to_string(MIN_RAMP_TIME) + " seconds");
 
     auto insert = [&]( auto & row ) {
         row.pair_id = pair_id;
@@ -545,7 +401,6 @@ void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier
         row.target_amplifier = target_amplifier;
         row.start_time = current_time_point();
         row.end_time = current_time_point() + eosio::minutes(minutes);
-        // row.end_time = timestamp;
     };
 
     auto itr = _ramp_table.find(pair_id.raw());
@@ -561,49 +416,4 @@ void sx::curve::stopramp( const symbol_code pair_id )
     sx::curve::ramp_table _ramp( get_self(), get_self().value );
     auto & ramp = _ramp.get(pair_id.raw(), "Curve.sx: `pair_id` does not exist in `ramp` table");
     _ramp.erase( ramp );
-}
-
-void sx::curve::update_amplifiers( )
-{
-    sx::curve::ramp_table _ramp( get_self(), get_self().value );
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-
-    // update `pairs` table with active ramp up/down that are different
-    for ( const auto ramp : _ramp ) {
-        auto pair_itr = _pairs.find(ramp.pair_id.raw());
-        if ( pair_itr == _pairs.end() ) continue;
-        const uint64_t amplifier = sx::curve::get_amplifier( ramp.pair_id );
-
-        // modify pairs table if amplifier is different
-        if ( pair_itr->amplifier != amplifier ) {
-            _pairs.modify( pair_itr, get_self(), [&]( auto & row ) {
-                row.amplifier = amplifier;
-                row.last_updated = current_time_point();
-            });
-        }
-    }
-}
-
-void sx::curve::create( const extended_symbol value )
-{
-    eosio::token::create_action create( value.get_contract(), { value.get_contract(), "active"_n });
-    create.send( get_self(), asset{ asset_max, value.get_symbol() } );
-}
-
-void sx::curve::issue( const extended_asset value, const string memo )
-{
-    eosio::token::issue_action issue( value.contract, { get_self(), "active"_n });
-    issue.send( get_self(), value.quantity, memo );
-}
-
-void sx::curve::retire( const extended_asset value, const string memo )
-{
-    eosio::token::retire_action retire( value.contract, { get_self(), "active"_n });
-    retire.send( value.quantity, memo );
-}
-
-void sx::curve::transfer( const name from, const name to, const extended_asset value, const string memo )
-{
-    eosio::token::transfer_action transfer( value.contract, { from, "active"_n });
-    transfer.send( from, to, value.quantity, memo );
 }

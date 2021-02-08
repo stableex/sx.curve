@@ -4,11 +4,33 @@
 
 ## Quickstart
 
-### `cleos`
+### `convert`
+
+> memo schema: `swap,<min_return>,<pair_id>`
 
 ```bash
-$ cleos transfer myaccount curve.sx "10.0000 USDT" "USN" --contract tethertether
+$ cleos transfer myaccount curve.sx "10.0000 USDT" "swap,0,SXA" --contract tethertether
 # => receive "10.1000 USN@danchortoken"
+```
+
+### `deposit`
+
+> memo schema: `deposit,<pair_id>`
+
+```bash
+$ cleos transfer myaccount curve.sx "10.0000 USDT" "deposit,SXA" --contract tethertether
+$ cleos transfer myaccount curve.sx "10.0000 USN" "deposit,SXA" --contract danchortoken
+$ cleos push action curve.sx deposit '["myaccount", "SXA"]' -p myaccount
+# => receive "20.0000 SXA@lptoken.sx"
+```
+
+### `withdraw`
+
+> memo schema: `N/A`
+
+```bash
+$ cleos transfer myaccount curve.sx "20.0000 SXA" "" --contract lptoken.sx
+# => receive "10.0000 USDT@tethertether" + "10.0000 USN@danchortoken"
 ```
 
 ### C++
