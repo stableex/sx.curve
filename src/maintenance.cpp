@@ -58,9 +58,11 @@ void sx::curve::backup()
 
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     sx::curve::backup_table _backup( get_self(), get_self().value );
+    sx::curve::config_table _config( get_self(), get_self().value );
     clear_table( _backup );
 
     auto itr = _pairs.begin();
+    check( itr != _pairs.end(), "pairs is empty");
     while ( itr != _pairs.end() ) {
         _backup.emplace( get_self(), [&]( auto & row ) {
             row.id = itr->id;
@@ -77,6 +79,8 @@ void sx::curve::backup()
         });
         ++itr;
     }
+    sx::curve::setstatus_action setstatus( get_self(), { get_self(), "active"_n });
+    setstatus.send( "backup"_n );
 }
 
 [[eosio::action]]
@@ -89,6 +93,7 @@ void sx::curve::copy()
     clear_table( _pairs );
 
     auto itr = _backup.begin();
+    check( itr != _backup.end(), "backup is empty");
     while ( itr != _backup.end() ) {
         _pairs.emplace( get_self(), [&]( auto & row ) {
             row.id = itr->id;
@@ -105,4 +110,6 @@ void sx::curve::copy()
         });
         ++itr;
     }
+    sx::curve::setstatus_action setstatus( get_self(), { get_self(), "active"_n });
+    setstatus.send( "copy"_n );
 }

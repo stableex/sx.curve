@@ -231,6 +231,14 @@ public:
     [[eosio::action]]
     void swaplog( const symbol_code pair_id, const name owner, const name action, const asset quantity_in, const asset quantity_out, const asset fee, const double trade_price, const asset reserve0, const asset reserve1 );
 
+    using deposit_action = eosio::action_wrapper<"deposit"_n, &sx::curve::deposit>;
+    using cancel_action = eosio::action_wrapper<"cancel"_n, &sx::curve::cancel>;
+    using createpair_action = eosio::action_wrapper<"createpair"_n, &sx::curve::createpair>;
+    using removepair_action = eosio::action_wrapper<"removepair"_n, &sx::curve::removepair>;
+    using setfee_action = eosio::action_wrapper<"setfee"_n, &sx::curve::setfee>;
+    using setstatus_action = eosio::action_wrapper<"setstatus"_n, &sx::curve::setstatus>;
+    using ramp_action = eosio::action_wrapper<"ramp"_n, &sx::curve::ramp>;
+    using stopramp_action = eosio::action_wrapper<"stopramp"_n, &sx::curve::stopramp>;
     using liquiditylog_action = eosio::action_wrapper<"liquiditylog"_n, &sx::curve::liquiditylog>;
     using swaplog_action = eosio::action_wrapper<"swaplog"_n, &sx::curve::swaplog>;
 

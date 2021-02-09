@@ -231,7 +231,7 @@ void sx::curve::cancel( const name owner, const symbol_code pair_id )
 [[eosio::action]]
 void sx::curve::removepair( const symbol_code pair_id )
 {
-    has_auth( get_self() );
+    require_auth( get_self() );
 
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
     auto & pair = _pairs.get( pair_id.raw(), "Curve.sx: pairs does not exist");
