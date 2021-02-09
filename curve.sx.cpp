@@ -332,7 +332,7 @@ void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier
 
     sx::curve::ramp_table _ramp_table( get_self(), get_self().value );
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    auto pair = _pairs.get(pair_id.raw(), "`pair_id` does not exist in `pairs`");
+    auto pair = _pairs.get(pair_id.raw(), "Curve.sx: `pair_id` does not exist in `pairs`");
 
     // validation
     check( target_amplifier > 0 && target_amplifier <= MAX_AMPLIFIER, "Curve.sx: target amplifier should be within within valid range");

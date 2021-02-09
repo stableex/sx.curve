@@ -17,7 +17,7 @@ static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
 static constexpr uint8_t MAX_PRECISION = 9;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
-static constexpr uint32_t MIN_RAMP_TIME = 86400;
+static constexpr uint32_t MIN_RAMP_TIME = 1; // PRODUCTION = 86400
 static constexpr uint32_t MAX_AMPLIFIER = 1000000;
 static constexpr uint32_t MAX_PROTOCOL_FEE = 100;
 static constexpr uint32_t MAX_TRADE_FEE = 50;

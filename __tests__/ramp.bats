@@ -6,7 +6,7 @@
   [ $status -eq 1 ]
   [[ "$output" =~ "target amplifier should be" ]]
 
-  run cleos push action curve.sx ramp '["AB", 2000, 1]' -p curve.sx
+  run cleos push action curve.sx ramp '["AB", 2000000, 1]' -p curve.sx
   [ $status -eq 1 ]
   [[ "$output" =~ "target amplifier should be" ]]
 
