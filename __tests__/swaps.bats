@@ -41,6 +41,11 @@ load bats.global
   [[ "$output" =~ "contract mismatch" ]]
   [ $status -eq 1 ]
 
+  run cleos transfer myaccount curve.sx "100.0000 B" "swap,0,AB-BC"
+  echo "$output"
+  [[ "$output" =~ "contract mismatch" ]]
+  [ $status -eq 1 ]
+
   run cleos transfer myaccount curve.sx "100.0000 B" "swap,1200000,AB"
   echo "$output"
   [[ "$output" =~ "invalid minimum return" ]]
@@ -65,6 +70,11 @@ load bats.global
   echo "$output"
   [[ "$output" =~ "contract mismatch" ]]
   [ $status -eq 1 ]
+
+  run cleos transfer myaccount curve.sx "100.00000000 C" "swap,900000,AC-AC"
+  echo "$output"
+  [[ "$output" =~ "invalid duplicate" ]]
+  [ $status -eq 1 ]
 }
 
 @test "valid transfers" {
@@ -88,9 +98,11 @@ load bats.global
   echo "$output"
   [ $status -eq 0 ]
 
-  run cleos transfer myaccount curve.sx "100.00000000 C" "swap,900000,AC"
+  run cleos transfer myaccount curve.sx "100.00000000 C" "swap,900000,AC-AB"
   echo "$output"
   [ $status -eq 0 ]
+  [[ "$output" =~ "{\"pair_id\":\"AC\"" ]]
+  [[ "$output" =~ "{\"pair_id\":\"AB\"" ]]
 }
 
 @test "swap with protocol fee" {
@@ -102,10 +114,12 @@ load bats.global
 
   run cleos transfer myaccount curve.sx "100.0000 A" "swap,0,AB"
   [ $status -eq 0 ]
-  [[ "$output" =~ "99.8445 B" ]]
+  [[ "$output" =~ "0.0100 A" ]]
+  [[ "$output" =~ "99.8162 B" ]]
 
   run cleos transfer myaccount curve.sx "100.0000 B" "swap,0,AB"
-  [[ "$output" =~ "100.0648 A" ]]
+  [[ "$output" =~ "0.0100 B" ]]
+  [[ "$output" =~ "100.0839 A" ]]
   [ $status -eq 0 ]
 
   fee_balance=$(cleos get currency balance eosio.token fee.sx A)
@@ -119,27 +133,27 @@ load bats.global
 }
 
 
-# # @test "50 random swaps" {
-# #   symbols="ABC"
-# #   for i in {0..50}
-# #   do
-# #     rnd=$((RANDOM % 10000))
-# #     curr1="${symbols:$(( RANDOM % ${#symbols} )):1}"
-# #     decimals=$((RANDOM % 10000))
-# #     if [[ "$curr1" = "C" ]]
-# #     then
-# #       decimals=$((RANDOM % 10000))8$((RANDOM % 10000))
-# #     fi
-# #     curr2=$curr1
-# #     until [ $curr2 != $curr1 ]
-# #     do
-# #       curr2="swap,0,${symbols:$(( RANDOM % ${#symbols} )):1}"
-# #     done
-# #     tokens="$rnd.$decimals $curr1"
-# #     echo "swapping $tokens => $curr2"
-# #     run cleos transfer myaccount curve.sx "$tokens" "$curr2"
-# #     [ $status -eq 0 ]
-# #   done
-
-# # }
+@test "50 random swaps" {
+  symbols="ABC"
+  pairs=("AB" "BC" "AC")
+  for i in {0..50}
+  do
+    num=$((RANDOM % 10000))
+    curr1="${symbols:$(( RANDOM % ${#symbols} )):1}"
+    decimals=$((RANDOM % 10000))
+    if [[ "$curr1" = "C" ]]
+    then
+      decimals=$((RANDOM % 10000))8$((RANDOM % 10000))
+    fi
+    pair=${pairs[$((RANDOM % ${#pairs[@]}))]}
+    until [[ $pair =~ $curr1 ]]
+    do
+      pair=${pairs[$((RANDOM % ${#pairs[@]}))]}
+    done
+    tokens="$num.$decimals $curr1"
+    echo "swapping $tokens => $pair"
+    run cleos transfer myaccount curve.sx "$tokens" "swap,0,$pair"
+    [ $status -eq 0 ]
+  done
+}
 

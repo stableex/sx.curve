@@ -23,6 +23,9 @@
 
   amp_start=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[0].amplifier')
   run cleos push action curve.sx ramp '["AB", 200, 1]' -p curve.sx
+  if [[ $output =~ "86400 seconds" ]]; then
+      skip "can't run this test in production configuration: MIN_RAMP_TIME==86400 seconds"
+  fi
   [ $status -eq 0 ]
 
   amp=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[0].amplifier')
@@ -40,6 +43,9 @@
 
   amp_start=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].amplifier')
   run cleos push action curve.sx ramp '["AC", 100, 1]' -p curve.sx
+  if [[ $output =~ "86400 seconds" ]]; then
+      skip "can't run this test in production configuration: MIN_RAMP_TIME==86400 seconds"
+  fi
   [ $status -eq 0 ]
 
   amp=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].amplifier')
@@ -55,7 +61,9 @@
 @test "stop ramp" {
 
   amp=$(cleos get table curve.sx curve.sx ramp | jq -r '.rows[0].target_amplifier')
-  [ "$amp" ]
+  if [[ "$amp" != "200" ]]; then
+      skip "no ramp set - production configuration?"
+  fi
 
   run cleos push action curve.sx stopramp '["BC"]' -p curve.sx
   [ $status -eq 1 ]
