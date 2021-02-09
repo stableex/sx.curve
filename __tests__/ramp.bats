@@ -29,7 +29,7 @@
   [ "$amp" = "$amp_start" ]
   sleep 5
 
-  run cleos transfer myaccount curve.sx "100.0000 A" "B"
+  run cleos transfer myaccount curve.sx "100.0000 A" "swap,0,AB"
   [ $status -eq 0 ]
   amp=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[0].amplifier')
   [ "$amp" != "$amp_start" ]
@@ -46,7 +46,7 @@
   [ "$amp" = "$amp_start" ]
   sleep 5
 
-  run cleos transfer myaccount curve.sx "100.0000 A" "C"
+  run cleos transfer myaccount curve.sx "100.0000 A" "swap,0,AC"
   [ $status -eq 0 ]
   amp=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].amplifier')
   [ "$amp" != "$amp_start" ]

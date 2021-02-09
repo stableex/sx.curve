@@ -368,5 +368,69 @@ namespace utils {
 
         return extended_asset {quantity, contract};
     }
+
+    /**
+     * ## STATIC `is_digit`
+     *
+     * True/False if string is digit
+     *
+     * ### params
+     *
+     * - `{string} str` - string to parse
+     *
+     * ### returns
+     *
+     * - `{bool}` - true/false if digit
+     *
+     * ### example
+     *
+     * ```c++
+     * sx::utils::is_digit("123");
+     * // => true
+     *
+     * sx::utils::is_digit("abc");
+     * // => false
+     * ```
+     */
+    bool is_digit( const string str )
+    {
+        if ( !str.size() ) return false;
+        for ( const auto c: str ) {
+            if ( !isdigit(c) ) return false;
+        }
+        return true;
+    }
+
+    /**
+     * ## STATIC `is_alpha`
+     *
+     * True/False if string is alphabetic
+     *
+     * ### params
+     *
+     * - `{string} str` - string to parse
+     *
+     * ### returns
+     *
+     * - `{bool}` - true/false if alphabetic
+     *
+     * ### example
+     *
+     * ```c++
+     * sx::utils::is_alpha("123");
+     * // => true
+     *
+     * sx::utils::is_alpha("abc");
+     * // => false
+     * ```
+     */
+    bool is_alpha( const string str )
+    {
+        if ( !str.size() ) return false;
+        for ( const auto c: str ) {
+            if ( !isalpha(c) ) return false;
+        }
+        return true;
+    }
 };
 }

@@ -33,9 +33,10 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     // user input params
     const auto parsed_memo = parse_memo( memo );
     const extended_asset ext_in = { quantity, get_first_receiver() };
+    const bool is_liquidity = _pairs.find( quantity.symbol.code().raw() ) != _pairs.end();
 
     // withdraw liquidity (no memo required)
-    if ( _pairs.find( quantity.symbol.code().raw() ) != _pairs.end() ) {
+    if ( is_liquidity ) {
         withdraw_liquidity( from, ext_in );
 
     // add liquidity (memo required => "deposit,<pair_id>")
@@ -481,6 +482,7 @@ sx::curve::memo_schema sx::curve::parse_memo( const string memo )
     // swap action
     if ( result.action == "swap"_n ) {
         result.pair_ids = parse_memo_pair_ids( parts[2] );
+        check( sx::utils::is_digit( parts[1] ), ERROR_INVALID_MEMO );
         result.min_return = std::stoll( parts[1] );
         check( result.min_return >= 0, ERROR_INVALID_MEMO );
         check( result.pair_ids.size() >= 1, ERROR_INVALID_MEMO );

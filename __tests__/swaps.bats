@@ -11,15 +11,15 @@ load bats.global
   [ "$b_balance" = "1000000.0000 B" ]
   [ "$c_balance" = "1000000.000000000 C" ]
 
-  run cleos transfer myaccount curve.sx "100.0000 A" "B"
+  run cleos transfer myaccount curve.sx "100.0000 A" "swap,0,B"
   [ $status -eq 0 ]
   [[ "$output" =~ "99.9594 B" ]]
 
-  run cleos transfer myaccount curve.sx "10000.0000 A" "B"
+  run cleos transfer myaccount curve.sx "10000.0000 A" "swap,0,B"
   [ $status -eq 0 ]
   [[ "$output" =~ "9989.9337 B" ]]
 
-  run cleos transfer myaccount curve.sx "1000.0000 A" "B"
+  run cleos transfer myaccount curve.sx "1000.0000 A" "swap,0,B"
   echo "status: $output"
   [ $status -eq 0 ]
   [[ "$output" =~ "999.0018 B" ]]
@@ -28,12 +28,12 @@ load bats.global
 @test "invalid transfers" {
   run cleos transfer myaccount curve.sx "100.0000 A" ""
   echo "$output"
-  [[ "$output" =~ "memo should contain target currency" ]]
+  [[ "$output" =~ "invalid memo" ]]
   [ $status -eq 1 ]
 
-  run cleos transfer myaccount curve.sx "100.0000 A" "BA"
+  run cleos transfer myaccount curve.sx "100.0000 A" "swap,BA"
   echo "$output"
-  [[ "$output" =~ "no path for exchange" ]]
+  [[ "$output" =~ "does not exist" ]]
   [ $status -eq 1 ]
 
   run cleos transfer myaccount curve.sx "100.0000 B" "90.0000 A@curve.sx"

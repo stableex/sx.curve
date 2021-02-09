@@ -3,8 +3,8 @@
 load bats.global
 
 @test "deposit AB" {
-  run cleos transfer liquidity.sx curve.sx "$((AB_LIQ)).0000 A" "AB"
-  run cleos transfer liquidity.sx curve.sx "$((AB_LIQ)).0000 B" "AB"
+  run cleos transfer liquidity.sx curve.sx "$((AB_LIQ)).0000 A" "deposit,AB"
+  run cleos transfer liquidity.sx curve.sx "$((AB_LIQ)).0000 B" "deposit,AB"
 
   result=$(cleos get table curve.sx AB orders | jq -r '.rows[0].quantity0.quantity')
   [ "$result" = "$((AB_LIQ)).0000 A" ]
@@ -25,8 +25,8 @@ load bats.global
 
 
 @test "deposit with excess BC" {
-  run cleos transfer liquidity.sx curve.sx "$((BC_LIQ+100)).0000 B" "BC"
-  run cleos transfer liquidity.sx curve.sx "$((BC_LIQ)).000000000 C" "BC"
+  run cleos transfer liquidity.sx curve.sx "$((BC_LIQ+100)).0000 B" "deposit,BC"
+  run cleos transfer liquidity.sx curve.sx "$((BC_LIQ)).000000000 C" "deposit,BC"
 
   result=$(cleos get table curve.sx BC orders | jq -r '.rows[0].quantity0.quantity')
   [ "$result" = "$((BC_LIQ+100)).0000 B" ]
@@ -54,8 +54,8 @@ load bats.global
 
 
 @test "deposit AC" {
-  run cleos transfer liquidity.sx curve.sx "$((AC_LIQ)).0000 A" "AC"
-  run cleos transfer liquidity.sx curve.sx "$((AC_LIQ)).000000000 C" "AC"
+  run cleos transfer liquidity.sx curve.sx "$((AC_LIQ)).0000 A" "deposit,AC"
+  run cleos transfer liquidity.sx curve.sx "$((AC_LIQ)).000000000 C" "deposit,AC"
 
   result=$(cleos get table curve.sx AC orders | jq -r '.rows[0].quantity0.quantity')
   [ "$result" = "$((AC_LIQ)).0000 A" ]
@@ -81,11 +81,11 @@ load bats.global
 @test "invalid deposits" {
   a_balance=$(cleos get currency balance eosio.token liquidity.sx A)
 
-  run cleos transfer liquidity.sx curve.sx "1000.0000 A" "AC"
+  run cleos transfer liquidity.sx curve.sx "1000.0000 A" "deposit,AC"
   [ $status -eq 0 ]
 
-  run cleos transfer liquidity.sx curve.sx "1000.0000 A" "ABB"
-  [[ "$output" =~ "no path for exchange" ]]
+  run cleos transfer liquidity.sx curve.sx "1000.0000 A" "deposit,ABB"
+  [[ "$output" =~ "does not exist" ]]
   [ $status -eq 1 ]
 
   run cleos push action curve.sx deposit '["liquidity.sx", "AC"]' -p liquidity.sx
@@ -98,12 +98,12 @@ load bats.global
   [[ "$output" =~ "no deposits for this user" ]]
   [ $status -eq 1 ]
 
-  run cleos transfer myaccount curve.sx "100.0000 B" "AC"
+  run cleos transfer myaccount curve.sx "100.0000 B" "deposit,AC"
   echo "$output"
   [[ "$output" =~ "invalid extended symbol when adding liquidity" ]]
   [ $status -eq 1 ]
 
-  run cleos transfer myaccount curve.sx "1000.0000 A" "AB" --contract fake.token
+  run cleos transfer myaccount curve.sx "1000.0000 A" "deposit,AB" --contract fake.token
   echo "$output"
   [[ "$output" =~ "invalid extended symbol when adding liquidity" ]]
   [ $status -eq 1 ]
