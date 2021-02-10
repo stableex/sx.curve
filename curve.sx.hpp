@@ -386,6 +386,7 @@ public:
         double              price1_last;
         asset               volume0;
         asset               volume1;
+        uint64_t            trades;
         time_point_sec      last_updated;
 
         uint64_t primary_key() const { return id.raw(); }

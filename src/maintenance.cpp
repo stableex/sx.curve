@@ -75,6 +75,7 @@ void sx::curve::backup()
             row.price1_last = itr->price1_last;
             row.volume0 = itr->volume0;
             row.volume1 = itr->volume1;
+            row.trades = itr->trades;
             row.last_updated = itr->last_updated;
         });
         ++itr;
@@ -106,6 +107,7 @@ void sx::curve::copy()
             row.price1_last = itr->price1_last;
             row.volume0 =itr->volume0;
             row.volume1 =itr->volume1;
+            row.trades = itr->trades;
             row.last_updated = itr->last_updated;
         });
         ++itr;

@@ -203,7 +203,7 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
 
         // log liquidity change
         sx::curve::liquiditylog_action liquiditylog( get_self(), { get_self(), "active"_n });
-        liquiditylog.send( pair_id, owner, "deposit"_n, issued.quantity, orders.quantity0.quantity, orders.quantity1.quantity, row.liquidity.quantity, row.reserve0.quantity, row.reserve1.quantity );
+        liquiditylog.send( pair_id, owner, "deposit"_n, issued.quantity, ext_deposit0.quantity, ext_deposit1.quantity, row.liquidity.quantity, row.reserve0.quantity, row.reserve1.quantity );
     });
 
     // issue & transfer to owner
