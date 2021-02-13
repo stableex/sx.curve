@@ -1,5 +1,7 @@
 #pragma once
 
+#include <sx.safemath/safemath.hpp>
+
 using namespace eosio;
 
 namespace Curve {
@@ -49,7 +51,7 @@ namespace Curve {
         while ( D != D_prev && i--) {
             uint128_t prod1 = D * D / (reserve_in * 2) * D / (reserve_out * 2);
             D_prev = D;
-            D = 2 * D * (amplifier * sum + prod1) / ((2 * amplifier - 1) * D + 3 * prod1);
+            D = 2 * D * (safemath::mul(amplifier, sum) + prod1) / ((2 * amplifier - 1) * D + 3 * prod1);
         }
 
         // calculate x - new value for reserve_out by solving quadratic equation iteratively:
