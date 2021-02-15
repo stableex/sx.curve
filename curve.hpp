@@ -51,6 +51,8 @@ namespace Curve {
         while ( D != D_prev && i--) {
             uint128_t prod1 = D * D / (reserve_in * 2) * D / (reserve_out * 2);
             D_prev = D;
+            check((uint64_t)D == D, "SX.Curve: D_OVERFLOW");
+            check((uint64_t)(safemath::mul( amplifier, sum ) + prod1) == safemath::mul( amplifier, sum ) + prod1, "SX.Curve: D_OVERFLOW");
             D = 2 * D * (safemath::mul(amplifier, sum) + prod1) / ((2 * amplifier - 1) * D + 3 * prod1);
         }
 
