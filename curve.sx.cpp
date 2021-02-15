@@ -16,17 +16,17 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     // authenticate incoming `from` account
     require_auth( from );
 
-    // ignore transfers
-    if ( to != get_self() || memo == get_self().to_string() || from == "eosio.ram"_n) return;
-
     // tables
     sx::curve::config_table _config( get_self(), get_self().value );
     sx::curve::pairs_table _pairs( get_self(), get_self().value );
 
     // config
-    check( _config.exists(), "Curve.sx: contract must first be initialized");
+    check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
     const name status = _config.get_or_default().status;
     check( (status == "ok"_n || status == "testing"_n), "Curve.sx: contract is under maintenance");
+
+    // ignore transfers
+    if ( to != get_self() || memo == get_self().to_string() || from == "eosio.ram"_n) return;
 
     // TEMP - DURING TESTING PERIOD
     if ( status == "testing"_n ) check( from.suffix() == "sx"_n, "account must be *.sx during testing period");
@@ -138,7 +138,7 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     sx::curve::orders_table _orders( get_self(), pair_id.raw() );
 
     // configs
-    check( _config.exists(), "Curve.sx: contract is under maintenance");
+    check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
     auto config = _config.get();
 
     // get current order & pairs

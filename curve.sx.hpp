@@ -24,6 +24,7 @@ static constexpr uint32_t MAX_TRADE_FEE = 50;
 
 // Error messages
 static string ERROR_INVALID_MEMO = "Curve.sx: invalid memo (ex: \"swap,<min_return>,<pair_ids>\" or \"deposit,<pair_id>\"";
+static string ERROR_CONFIG_NOT_EXISTS = "Curve.sx: contract is under maintenance";
 
 namespace sx {
 class [[eosio::contract("curve.sx")]] curve : public eosio::contract {
@@ -319,7 +320,7 @@ public:
     {
         sx::curve::config_table _config( sx::curve::code, sx::curve::code.value );
         sx::curve::pairs_table _pairs( sx::curve::code, sx::curve::code.value );
-        check( _config.exists(), "Curve.sx: contract is under maintenance");
+        check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
 
         // get configs
         auto config = _config.get();
