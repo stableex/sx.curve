@@ -4,7 +4,7 @@
   run cleos transfer myaccount curve.sx "1000.0000 A" ""
   echo "Output: $output"
   [ $status -eq 1 ]
-  [[ "$output" =~ "initialized" ]]
+  [[ "$output" =~ "under maintenance" ]]
 }
 
 @test "set config" {

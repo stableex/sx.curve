@@ -284,7 +284,7 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
 
         // log liquidity change
         sx::curve::liquiditylog_action liquiditylog( get_self(), { get_self(), "active"_n });
-        liquiditylog.send( pair_id, owner, "withdraw"_n, value.quantity, out0.quantity, out1.quantity, row.liquidity.quantity, row.reserve0.quantity, row.reserve1.quantity );
+        liquiditylog.send( pair_id, owner, "withdraw"_n, value.quantity, -out0.quantity, -out1.quantity, row.liquidity.quantity, row.reserve0.quantity, row.reserve1.quantity );
     });
 
     // issue & transfer to owner
