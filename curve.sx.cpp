@@ -144,8 +144,7 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     // get current order & pairs
     auto & pair = _pairs.get( pair_id.raw(), "Curve.sx: pair does not exist");
     auto & orders = _orders.get( owner.value, "Curve.sx: no deposits for this user");
-    check((pair.reserve0.quantity.amount && pair.reserve1.quantity.amount) || (pair.reserve0.quantity.amount==0 && pair.reserve0.quantity.amount==0), "invalid pair reserves");
-    check(orders.quantity0.quantity.amount && orders.quantity1.quantity.amount, "Curve.sx: one of the currencies not provided");
+    check( orders.quantity0.quantity.amount && orders.quantity1.quantity.amount, "Curve.sx: one of the currencies not provided");
 
     // symbol helpers
     const symbol sym0 = pair.reserve0.quantity.symbol;
