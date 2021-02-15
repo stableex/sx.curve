@@ -33,3 +33,23 @@ fee=4
   [[ "$output" =~ "5852835188" ]]
 }
 
+@test "curve formula #5" {
+  run cleos push action curve.sx test "[10000000, 1000000000000000000, 1000000000000000000, 5, $fee]" -p curve.sx
+  echo "Output: $output"
+  [ $status -eq 1 ]
+  [[ "$output" =~ "9996000" ]]
+}
+
+@test "curve formula #6" {
+  run cleos push action curve.sx test "[10000000, 4000000000000000000, 4000000000000000000, 2, $fee]" -p curve.sx
+  echo "Output: $output"
+  [ $status -eq 1 ]
+  [[ "$output" =~ "D1_OVERFLOW" ]]
+}
+
+@test "curve formula #7" {
+  run cleos push action curve.sx test "[10000000, 9500000000000000000, 9500000000000000000, $amplifier, $fee]" -p curve.sx
+  echo "Output: $output"
+  [ $status -eq 1 ]
+  [[ "$output" =~ "INVALID_RESERVES" ]]
+}

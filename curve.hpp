@@ -42,6 +42,7 @@ namespace Curve {
         eosio::check(amplifier > 0, "SX.Curve: WRONG_AMPLIFIER");
         eosio::check(reserve_in > 0 && reserve_out > 0, "SX.Curve: INSUFFICIENT_LIQUIDITY");
         eosio::check(fee <= 100, "SX.Curve: FEE_TOO_HIGH");
+        eosio::check(reserve_in < (1LL << 62) - 1 && reserve_out < (1LL << 62) - 1, "SX.Curve: INVALID_RESERVES");
 
         // calculate invariant D by solving quadratic equation:
         // A * sum * n^n + D = A * D * n^n + D^(n+1) / (n^n * prod), where n==2
@@ -51,15 +52,15 @@ namespace Curve {
         while ( D != D_prev && i--) {
             uint128_t prod1 = D * D / (reserve_in * 2) * D / (reserve_out * 2);
             D_prev = D;
-            check((uint64_t)D == D, "SX.Curve: D_OVERFLOW");
-            check((uint64_t)(safemath::mul( amplifier, sum ) + prod1) == safemath::mul( amplifier, sum ) + prod1, "SX.Curve: D_OVERFLOW");
+            check((uint64_t)(safemath::mul( amplifier, sum ) + prod1) == safemath::mul( amplifier, sum ) + prod1, "SX.Curve: D1_OVERFLOW");
             D = 2 * D * (safemath::mul(amplifier, sum) + prod1) / ((2 * amplifier - 1) * D + 3 * prod1);
         }
 
         // calculate x - new value for reserve_out by solving quadratic equation iteratively:
         // x^2 + x * (sum' - (An^n - 1) * D / (An^n)) = D ^ (n + 1) / (n^(2n) * prod' * A), where n==2
         // x^2 + b*x = c
-        const int64_t b = (int64_t) ((reserve_in + amount_in) + (D / (amplifier * 2))) - (int64_t) D;
+        check((uint64_t)D == D, "SX.Curve: D2_OVERFLOW");
+        const int128_t b = (int128_t) ((reserve_in + amount_in) + (D / (amplifier * 2))) - (int128_t) D;
         const uint128_t c = D * D / ((reserve_in + amount_in) * 2) * D / (amplifier * 4);
         uint128_t x = D, x_prev = 0;
         i = MAX_ITERATIONS;
