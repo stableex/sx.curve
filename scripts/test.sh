@@ -26,4 +26,4 @@ cleos push action curve.sx deposit '["myaccount", "AC"]' -p myaccount
 
 # swap
 cleos transfer myaccount curve.sx "100.0000 A" "swap,0,AC"
-cleos transfer myaccount curve.sx "100.0000 A" "swap,0,AC-BC"
+#cleos transfer myaccount curve.sx "100.0000 A" "swap,0,AC-BC"

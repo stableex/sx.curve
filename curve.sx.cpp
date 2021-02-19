@@ -169,12 +169,12 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     if (deposit0 < amount0) {
         const int64_t excess_amount = div_amount(static_cast<int64_t>(amount0 - deposit0), MAX_PRECISION, sym0.precision());
         const extended_asset excess = { excess_amount, pair.reserve0.get_extended_symbol() };
-        transfer( get_self(), owner, excess, "Curve.sx: excess");
+        if(excess.quantity.amount) transfer( get_self(), owner, excess, "Curve.sx: excess");
     }
     if (deposit1 < amount1) {
         const int64_t excess_amount = div_amount(static_cast<int64_t>(amount1 - deposit1), MAX_PRECISION, sym1.precision());
         const extended_asset excess = { excess_amount, pair.reserve1.get_extended_symbol() };
-        transfer( get_self(), owner, excess, "Curve.sx: excess");
+        if(excess.quantity.amount) transfer( get_self(), owner, excess, "Curve.sx: excess");
     }
 
     // normalize final deposits
