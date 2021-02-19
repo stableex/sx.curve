@@ -150,39 +150,29 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     const symbol sym0 = pair.reserve0.quantity.symbol;
     const symbol sym1 = pair.reserve1.quantity.symbol;
 
-    // calculate total deposits based on reserves
+    // calculate total deposits based on reserves: reserves ratio should remain the same
     // if reserves empty, fallback to 1
-    const int64_t supply = mul_amount(pair.liquidity.quantity.amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision());
-    const int64_t reserve0 = pair.reserve0.quantity.amount ? mul_amount(pair.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
-    const int64_t reserve1 = pair.reserve1.quantity.amount ? mul_amount(pair.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
-    const int64_t reserves = reserve0 + reserve1;
-    const double reserve_ratio0 = double(reserve0) / reserves;
-    const double reserve_ratio1 = double(reserve1) / reserves;
+    const int128_t reserve0 = pair.reserve0.quantity.amount ? mul_amount(pair.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
+    const int128_t reserve1 = pair.reserve1.quantity.amount ? mul_amount(pair.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
+    const int128_t reserves = reserve0 + reserve1;
 
     // get owner order and calculate payment
-    const int64_t amount0 = mul_amount(orders.quantity0.quantity.amount, MAX_PRECISION, sym0.precision());
-    const int64_t amount1 = mul_amount(orders.quantity1.quantity.amount, MAX_PRECISION, sym1.precision());
-    const int64_t payment = amount0 + amount1;
-    const double amount_ratio0 = double(amount0) / payment;
-    const double amount_ratio1 = double(amount1) / payment;
+    const int128_t amount0 = mul_amount(orders.quantity0.quantity.amount, MAX_PRECISION, sym0.precision());
+    const int128_t amount1 = mul_amount(orders.quantity1.quantity.amount, MAX_PRECISION, sym1.precision());
+    const int128_t payment = amount0 + amount1;
 
-    // actual amounts to deposit
-    int64_t deposit0 = amount0;
-    int64_t deposit1 = amount1;
-
-    // ??? BETTER DESCRIPTION ???
-    // calculate excess deposit
-    if (amount_ratio0 <= reserve_ratio0) deposit1 = ((uint128_t) amount0) * reserve1 / reserve0;
-    else deposit0 = ((uint128_t) amount1) * reserve0 / reserve1;
+    // calculate actual amounts to deposit
+    const int128_t deposit0 = (amount0 * reserves <= reserve0 * payment) ? amount0 : (amount1 * reserve0 / reserve1);
+    const int128_t deposit1 = (amount0 * reserves <= reserve0 * payment) ? (amount0 * reserve1 / reserve0) : amount1;
 
     // send back excess deposit to owner
     if (deposit0 < amount0) {
-        const int64_t excess_amount = div_amount(amount0, MAX_PRECISION, sym0.precision()) - div_amount(deposit0, MAX_PRECISION, sym0.precision());
+        const int64_t excess_amount = div_amount(static_cast<int64_t>(amount0 - deposit0), MAX_PRECISION, sym0.precision());
         const extended_asset excess = { excess_amount, pair.reserve0.get_extended_symbol() };
         transfer( get_self(), owner, excess, "Curve.sx: excess");
     }
     if (deposit1 < amount1) {
-        const int64_t excess_amount = div_amount(amount1, MAX_PRECISION, sym1.precision()) - div_amount(deposit1, MAX_PRECISION, sym1.precision());
+        const int64_t excess_amount = div_amount(static_cast<int64_t>(amount1 - deposit1), MAX_PRECISION, sym1.precision());
         const extended_asset excess = { excess_amount, pair.reserve1.get_extended_symbol() };
         transfer( get_self(), owner, excess, "Curve.sx: excess");
     }
@@ -192,6 +182,7 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
     const extended_asset ext_deposit1 = { div_amount(deposit1, MAX_PRECISION, sym1.precision()), pair.reserve1.get_extended_symbol()};
 
     // issue liquidity
+    const int64_t supply = mul_amount(pair.liquidity.quantity.amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision());
     const int64_t issued_amount = rex::issue(deposit0 + deposit1, reserves, supply, 1);
     const extended_asset issued = { div_amount(issued_amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision()), pair.liquidity.get_extended_symbol()};
 
