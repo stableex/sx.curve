@@ -350,7 +350,9 @@ public:
 
     static int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
     {
-        return amount * pow(10, precision0 - precision1 );
+        const int64_t res = static_cast<int64_t>( safemath::mul(amount, pow(10, precision0 - precision1 )) );
+        check(res >= 0, "Curve.sx: mul overflow");
+        return res;
     }
 
     static int64_t div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
