@@ -457,11 +457,14 @@ double sx::curve::calculate_price( const asset value0, const asset value1 )
 // ============
 // Swap: `swap,<min_return>,<pair_ids>` (ex: "swap,0,SXA" )
 // Deposit: `deposit,<pair_id>` (ex: "deposit,SXA")
+// Withdrawal: `` (empty)
 sx::curve::memo_schema sx::curve::parse_memo( const string memo )
 {
+    if(memo == "") return {};
+
     // split memo into parts
     const vector<string> parts = sx::utils::split(memo, ",");
-    check(parts.size() == 2 || parts.size() == 3, ERROR_INVALID_MEMO );
+    check(parts.size() <= 3, ERROR_INVALID_MEMO );
 
     // memo result
     memo_schema result;
