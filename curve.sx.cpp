@@ -442,7 +442,7 @@ double sx::curve::calculate_virtual_price( const asset value0, const asset value
     const int64_t amount0 = mul_amount( value0.amount, MAX_PRECISION, value0.symbol.precision() );
     const int64_t amount1 = mul_amount( value1.amount, MAX_PRECISION, value1.symbol.precision() );
     const int64_t amount2 = mul_amount( supply.amount, MAX_PRECISION, supply.symbol.precision() );
-    return static_cast<double>( amount0 + amount1 ) / amount2;
+    return static_cast<double>( safemath::add(amount0, amount1) ) / amount2;
 }
 
 // calculate last price per trade
