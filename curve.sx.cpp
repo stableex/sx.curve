@@ -461,7 +461,7 @@ sx::curve::memo_schema sx::curve::parse_memo( const string memo )
 {
     // split memo into parts
     const vector<string> parts = sx::utils::split(memo, ",");
-    check(parts.size() <= 3, ERROR_INVALID_MEMO );
+    check(parts.size() == 2 || parts.size() == 3, ERROR_INVALID_MEMO );
 
     // memo result
     memo_schema result;
