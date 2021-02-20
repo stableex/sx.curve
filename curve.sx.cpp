@@ -246,22 +246,20 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
 
     // calculate total deposits based on reserves
     const int64_t supply = mul_amount(pair.liquidity.quantity.amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision());
-    const int64_t reserve0 = pair.reserve0.quantity.amount ? mul_amount(pair.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
-    const int64_t reserve1 = pair.reserve1.quantity.amount ? mul_amount(pair.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
-    const int64_t reserves = reserve0 + reserve1;
-    const double reserve_ratio0 = double(reserve0) / reserves;
-    const double reserve_ratio1 = double(reserve1) / reserves;
+    const int128_t reserve0 = pair.reserve0.quantity.amount ? mul_amount(pair.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
+    const int128_t reserve1 = pair.reserve1.quantity.amount ? mul_amount(pair.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
+    const int128_t reserves = reserve0 + reserve1;
 
     // calculate withdraw amounts
     const int64_t payment = mul_amount(value.quantity.amount, MAX_PRECISION, value.quantity.symbol.precision());
     const int64_t retire_amount = rex::retire( payment, reserves, supply );
 
     // get owner order and calculate payment
-    int64_t amount0 = retire_amount * reserve_ratio0;
-    int64_t amount1 = retire_amount * reserve_ratio1;
+    int64_t amount0 = static_cast<int64_t>( retire_amount * reserve0 / reserves );
+    int64_t amount1 = static_cast<int64_t>( retire_amount * reserve1 / reserves );
     if (amount0 == reserve0 || amount1 == reserve1) {         //deal with rounding error on final withdrawal
-        amount0 = reserve0;
-        amount1 = reserve1;
+        amount0 = static_cast<int64_t>( reserve0 );
+        amount1 = static_cast<int64_t>( reserve1 );
     }
     const extended_asset out0 = { div_amount(amount0, MAX_PRECISION, sym0.precision()), ext_sym0 };
     const extended_asset out1 = { div_amount(amount1, MAX_PRECISION, sym1.precision()), ext_sym1 };
