@@ -34,6 +34,8 @@ cleos push action eosio.token issue '["eosio", "5000000.000000000 C", "init"]' -
 # create fake tokens
 cleos push action fake.token create '["eosio", "100000000.0000 A"]' -p fake.token
 cleos push action fake.token issue '["eosio", "5000000.0000 A", "init"]' -p eosio
+cleos push action fake.token create '["eosio", "100000000.0000 AB"]' -p fake.token
+cleos push action fake.token issue '["eosio", "5000000.0000 AB", "init"]' -p eosio
 
 # load variables used for testing
 source __tests__/bats.global.bash
@@ -46,3 +48,4 @@ cleos transfer eosio myaccount "1000000.000000000 C" ""
 cleos transfer eosio liquidity.sx "$A_LP_TOTAL.0000 B" ""
 cleos transfer eosio liquidity.sx "$B_LP_TOTAL.0000 A" ""
 cleos transfer eosio liquidity.sx "$C_LP_TOTAL.000000000 C" ""
+cleos transfer eosio liquidity.sx "1000000.0000 AB" "" --contract fake.token

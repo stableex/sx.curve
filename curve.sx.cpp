@@ -238,6 +238,8 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
     const symbol_code pair_id = value.quantity.symbol.code();
     auto & pair = _pairs.get( pair_id.raw(), "Curve.sx: pairs does not exist");
 
+    check(pair.liquidity.get_extended_symbol() == value.get_extended_symbol(), "Curve.sx: invalid liquidity contract");
+
     // extended symbols
     const extended_symbol ext_sym0 = pair.reserve0.get_extended_symbol();
     const extended_symbol ext_sym1 = pair.reserve1.get_extended_symbol();

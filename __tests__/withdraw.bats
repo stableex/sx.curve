@@ -1,6 +1,14 @@
 
 #!/usr/bin/env bats
 
+
+@test "withdraw fake token" {
+  run cleos transfer liquidity.sx curve.sx "1000.0000 AB" "" --contract fake.token
+  echo "$output"
+  [ $status -eq 1 ]
+  [[ "$output" =~ "invalid liquidity contract" ]]
+}
+
 @test "withdraw all" {
   ac_balance=$(cleos get currency balance lptoken.sx liquidity.sx AC)
   ab_balance=$(cleos get currency balance lptoken.sx liquidity.sx AB)
