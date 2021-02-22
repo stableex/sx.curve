@@ -343,13 +343,14 @@ public:
         if ( config.trade_fee ) check( in.amount * config.trade_fee / 10000, "Curve.sx: trade quantity too small");
 
         // calculate out
-        const int64_t out = div_amount( Curve::get_amount_out( amount_in - protocol_fee, reserve_in, reserve_out, amplifier, config.trade_fee ), MAX_PRECISION, precision_out );
+        const int64_t out = div_amount( static_cast<int64_t>(Curve::get_amount_out( amount_in - protocol_fee, reserve_in, reserve_out, amplifier, config.trade_fee )), MAX_PRECISION, precision_out );
 
         return { out, pairs.reserve1.quantity.symbol };
     }
 
     static int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
     {
+        check(precision0 >= precision1, "Curve.sx: invalid precisions");
         const int64_t res = static_cast<int64_t>( safemath::mul(amount, pow(10, precision0 - precision1 )) );
         check(res >= 0, "Curve.sx: mul overflow");
         return res;
@@ -357,7 +358,8 @@ public:
 
     static int64_t div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
     {
-        return amount / pow(10, precision0 - precision1 );
+        check(precision0 >= precision1, "Curve.sx: invalid precisions");
+        return amount / static_cast<int64_t>(pow( 10, precision0 - precision1 ));
     }
 
     // MAINTENANCE (TESTING ONLY)
