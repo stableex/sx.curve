@@ -4,21 +4,22 @@
 #include <sx.rex/rex.hpp>
 
 #include "curve.sx.hpp"
-#include "src/maintenance.cpp"
 #include "src/actions.cpp"
+
+namespace sx {
 
 /**
  * Notify contract when any token transfer notifiers relay contract
  */
 [[eosio::on_notify("*::transfer")]]
-void sx::curve::on_transfer( const name from, const name to, const asset quantity, const string memo )
+void curve::on_transfer( const name from, const name to, const asset quantity, const string memo )
 {
     // authenticate incoming `from` account
     require_auth( from );
 
     // tables
-    sx::curve::config_table _config( get_self(), get_self().value );
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    curve::config_table _config( get_self(), get_self().value );
+    curve::pairs_table _pairs( get_self(), get_self().value );
 
     // config
     check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
@@ -53,7 +54,7 @@ void sx::curve::on_transfer( const name from, const name to, const asset quantit
     }
 }
 
-void sx::curve::convert( const name owner, const extended_asset ext_in, const vector<symbol_code> pair_ids, const int64_t min_return )
+void curve::convert( const name owner, const extended_asset ext_in, const vector<symbol_code> pair_ids, const int64_t min_return )
 {
     // execute the trade by updating all involved pools
     const extended_asset out = apply_trade( owner, ext_in, pair_ids );
@@ -65,10 +66,10 @@ void sx::curve::convert( const name owner, const extended_asset ext_in, const ve
     transfer( get_self(), owner, out, "curve.sx: swap token" );
 }
 
-extended_asset sx::curve::apply_trade( const name owner, const extended_asset ext_quantity, const vector<symbol_code> pair_ids )
+extended_asset curve::apply_trade( const name owner, const extended_asset ext_quantity, const vector<symbol_code> pair_ids )
 {
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    sx::curve::config_table _config( get_self(), get_self().value );
+    curve::pairs_table _pairs( get_self(), get_self().value );
+    curve::config_table _config( get_self(), get_self().value );
     auto config = _config.get();
 
     // initial quantities
@@ -115,7 +116,7 @@ extended_asset sx::curve::apply_trade( const name owner, const extended_asset ex
             row.last_updated = current_time_point();
 
             // swap log
-            sx::curve::swaplog_action swaplog( get_self(), { get_self(), "active"_n });
+            curve::swaplog_action swaplog( get_self(), { get_self(), "active"_n });
             swaplog.send( pair_id, owner, "swap"_n, ext_in.quantity, ext_out.quantity, fee.quantity, price, row.reserve0.quantity, row.reserve1.quantity );
         });
         // send protocol fees
@@ -129,13 +130,13 @@ extended_asset sx::curve::apply_trade( const name owner, const extended_asset ex
 }
 
 [[eosio::action]]
-void sx::curve::deposit( const name owner, const symbol_code pair_id )
+void curve::deposit( const name owner, const symbol_code pair_id )
 {
     require_auth( owner );
 
-    sx::curve::config_table _config( get_self(), get_self().value );
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    sx::curve::orders_table _orders( get_self(), pair_id.raw() );
+    curve::config_table _config( get_self(), get_self().value );
+    curve::pairs_table _pairs( get_self(), get_self().value );
+    curve::orders_table _orders( get_self(), pair_id.raw() );
 
     // configs
     check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
@@ -193,7 +194,7 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
         row.liquidity += issued;
 
         // log liquidity change
-        sx::curve::liquiditylog_action liquiditylog( get_self(), { get_self(), "active"_n });
+        curve::liquiditylog_action liquiditylog( get_self(), { get_self(), "active"_n });
         liquiditylog.send( pair_id, owner, "deposit"_n, issued.quantity, ext_deposit0.quantity, ext_deposit1.quantity, row.liquidity.quantity, row.reserve0.quantity, row.reserve1.quantity );
     });
 
@@ -207,11 +208,11 @@ void sx::curve::deposit( const name owner, const symbol_code pair_id )
 
 // returns any remaining orders to owner account
 [[eosio::action]]
-void sx::curve::cancel( const name owner, const symbol_code pair_id )
+void curve::cancel( const name owner, const symbol_code pair_id )
 {
     if ( !has_auth( get_self() )) require_auth( owner );
 
-    sx::curve::orders_table _orders( get_self(), pair_id.raw() );
+    curve::orders_table _orders( get_self(), pair_id.raw() );
     auto & orders = _orders.get( owner.value, "curve.sx::cancel: no deposits for this user in this pool");
     if ( orders.quantity0.quantity.amount ) transfer( get_self(), owner, orders.quantity0, "curve.sx: cancel");
     if ( orders.quantity1.quantity.amount ) transfer( get_self(), owner, orders.quantity1, "curve.sx: cancel");
@@ -220,19 +221,19 @@ void sx::curve::cancel( const name owner, const symbol_code pair_id )
 }
 
 [[eosio::action]]
-void sx::curve::removepair( const symbol_code pair_id )
+void curve::removepair( const symbol_code pair_id )
 {
     require_auth( get_self() );
 
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    curve::pairs_table _pairs( get_self(), get_self().value );
     auto & pair = _pairs.get( pair_id.raw(), "curve.sx::removepair: `pair_id` does not exist");
     check( !pair.liquidity.quantity.amount, "curve.sx::removepair: liquidity must be empty before removing");
     _pairs.erase( pair );
 }
 
-void sx::curve::withdraw_liquidity( const name owner, const extended_asset value )
+void curve::withdraw_liquidity( const name owner, const extended_asset value )
 {
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    curve::pairs_table _pairs( get_self(), get_self().value );
 
     // get current pairs
     const symbol_code pair_id = value.quantity.symbol.code();
@@ -275,7 +276,7 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
         row.liquidity -= value;
 
         // log liquidity change
-        sx::curve::liquiditylog_action liquiditylog( get_self(), { get_self(), "active"_n });
+        curve::liquiditylog_action liquiditylog( get_self(), { get_self(), "active"_n });
         liquiditylog.send( pair_id, owner, "withdraw"_n, value.quantity, -out0.quantity, -out1.quantity, row.liquidity.quantity, row.reserve0.quantity, row.reserve1.quantity );
     });
 
@@ -285,10 +286,10 @@ void sx::curve::withdraw_liquidity( const name owner, const extended_asset value
     if ( out1.quantity.amount ) transfer( get_self(), owner, out1, "curve.sx: withdraw");
 }
 
-void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, const extended_asset value )
+void curve::add_liquidity( const name owner, const symbol_code pair_id, const extended_asset value )
 {
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    sx::curve::orders_table _orders( get_self(), pair_id.raw() );
+    curve::pairs_table _pairs( get_self(), get_self().value );
+    curve::orders_table _orders( get_self(), pair_id.raw() );
 
     // get current order & pairs
     auto pair = _pairs.get( pair_id.raw(), "curve.sx::add_liquidity: `pair_id` does not exist");
@@ -318,12 +319,12 @@ void sx::curve::add_liquidity( const name owner, const symbol_code pair_id, cons
 
 // increase/decrease amplifier of given pair id
 [[eosio::action]]
-void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier, const int64_t minutes )
+void curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier, const int64_t minutes )
 {
     require_auth( get_self() );
 
-    sx::curve::ramp_table _ramp_table( get_self(), get_self().value );
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    curve::ramp_table _ramp_table( get_self(), get_self().value );
+    curve::pairs_table _pairs( get_self(), get_self().value );
     auto pair = _pairs.get(pair_id.raw(), "curve.sx::ramp: `pair_id` does not exist in `pairs`");
 
     // validation
@@ -345,22 +346,22 @@ void sx::curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier
 }
 
 [[eosio::action]]
-void sx::curve::stopramp( const symbol_code pair_id )
+void curve::stopramp( const symbol_code pair_id )
 {
     require_auth( get_self() );
 
-    sx::curve::ramp_table _ramp( get_self(), get_self().value );
+    curve::ramp_table _ramp( get_self(), get_self().value );
     auto & ramp = _ramp.get(pair_id.raw(), "curve.sx::stopramp: `pair_id` does not exist in `ramp` table");
     _ramp.erase( ramp );
 }
 
 [[eosio::action]]
-void sx::curve::setfee( const uint8_t trade_fee, const optional<uint8_t> protocol_fee, const optional<name> fee_account )
+void curve::setfee( const uint8_t trade_fee, const optional<uint8_t> protocol_fee, const optional<name> fee_account )
 {
     require_auth( get_self() );
 
     // config
-    sx::curve::config_table _config( get_self(), get_self().value );
+    curve::config_table _config( get_self(), get_self().value );
     auto config = _config.get_or_default();
 
     // required params
@@ -379,26 +380,26 @@ void sx::curve::setfee( const uint8_t trade_fee, const optional<uint8_t> protoco
 }
 
 [[eosio::action]]
-void sx::curve::setstatus( const name status )
+void curve::setstatus( const name status )
 {
     require_auth( get_self() );
 
-    sx::curve::config_table _config( get_self(), get_self().value );
+    curve::config_table _config( get_self(), get_self().value );
     auto config = _config.get_or_default();
     config.status = status;
     _config.set( config, get_self() );
 }
 
 [[eosio::action]]
-void sx::curve::createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier )
+void curve::createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier )
 {
     // `creator` must be contract itself during beta period
     if ( !has_auth( get_self() ) ) check( false, "curve.sx::createpair: `creator` is disabled from creating pair during beta period");
     require_auth( creator );
 
     // tables
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
-    sx::curve::config_table _config( get_self(), get_self().value );
+    curve::pairs_table _pairs( get_self(), get_self().value );
+    curve::config_table _config( get_self(), get_self().value );
 
     // reserve params
     const name contract0 = reserve0.get_contract();
@@ -441,7 +442,7 @@ void sx::curve::createpair( const name creator, const symbol_code pair_id, const
 }
 
 // calculate reserve amounts relative to supply
-double sx::curve::calculate_virtual_price( const asset value0, const asset value1, const asset supply )
+double curve::calculate_virtual_price( const asset value0, const asset value1, const asset supply )
 {
     const int64_t amount0 = mul_amount( value0.amount, MAX_PRECISION, value0.symbol.precision() );
     const int64_t amount1 = mul_amount( value1.amount, MAX_PRECISION, value1.symbol.precision() );
@@ -450,7 +451,7 @@ double sx::curve::calculate_virtual_price( const asset value0, const asset value
 }
 
 // calculate last price per trade
-double sx::curve::calculate_price( const asset value0, const asset value1 )
+double curve::calculate_price( const asset value0, const asset value1 )
 {
     const int64_t amount0 = mul_amount( value0.amount, MAX_PRECISION, value0.symbol.precision() );
     const int64_t amount1 = mul_amount( value1.amount, MAX_PRECISION, value1.symbol.precision() );
@@ -462,7 +463,7 @@ double sx::curve::calculate_price( const asset value0, const asset value1 )
 // Swap: `swap,<min_return>,<pair_ids>` (ex: "swap,0,SXA" )
 // Deposit: `deposit,<pair_id>` (ex: "deposit,SXA")
 // Withdrawal: `` (empty)
-sx::curve::memo_schema sx::curve::parse_memo( const string memo )
+curve::memo_schema curve::parse_memo( const string memo )
 {
     if(memo == "") return {};
 
@@ -495,9 +496,9 @@ sx::curve::memo_schema sx::curve::parse_memo( const string memo )
 // ============
 // Single: `<pair_id>` (ex: "SXA")
 // Multiple: `<pair_id>-<pair_id>` (ex: "SXA-SXB")
-vector<symbol_code> sx::curve::parse_memo_pair_ids( const string memo )
+vector<symbol_code> curve::parse_memo_pair_ids( const string memo )
 {
-    sx::curve::pairs_table _pairs( get_self(), get_self().value );
+    curve::pairs_table _pairs( get_self(), get_self().value );
 
     set<symbol_code> duplicates;
     vector<symbol_code> pair_ids;
@@ -511,3 +512,13 @@ vector<symbol_code> sx::curve::parse_memo_pair_ids( const string memo )
     }
     return pair_ids;
 }
+
+[[eosio::action]]
+void curve::calculate( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee )
+{
+    const uint64_t out = Curve::get_amount_out( amount, reserve_in, reserve_out, amplifier, fee );
+    print("\ncurrent get_amount_out(amount: ", amount, ", amp: ", amplifier, "  ): ", out );
+    check(false, "see print");
+}
+
+} // namespace sx
