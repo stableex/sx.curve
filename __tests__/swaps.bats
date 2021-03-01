@@ -119,7 +119,7 @@ load bats.global
   [[ "$output" =~ "{\"pair_id\":\"AB\"" ]]
 }
 
-@test "swap with protocol fee" {skip
+@test "swap with protocol fee" {
   run cleos push action curve.sx setfee '[4, 1, "fee.sx"]' -p curve.sx
   [ $status -eq 0 ]
 
@@ -129,11 +129,21 @@ load bats.global
   run cleos transfer myaccount curve.sx "100.0000 A" "swap,0,AB"
   [ $status -eq 0 ]
   [[ "$output" =~ "0.0100 A" ]]
-  [[ "$output" =~ "99.8162 B" ]]
+  [[ "$output" =~ "99.8150 B" ]]
 
   run cleos transfer myaccount curve.sx "100.0000 B" "swap,0,AB"
   [[ "$output" =~ "0.0100 B" ]]
-  [[ "$output" =~ "100.0839 A" ]]
+  [[ "$output" =~ "100.0851 A" ]]
+  [ $status -eq 0 ]
+
+  run cleos transfer myaccount curve.sx "100.0000 C" "swap,0,CAB"
+  [[ "$output" =~ "0.010000000 C" ]]
+  [[ "$output" =~ "99.9357 AB" ]]
+  [ $status -eq 0 ]
+
+  run cleos transfer myaccount curve.sx "100.0000 AB" "swap,0,CAB" --contract lptoken.sx
+  [[ "$output" =~ "0.0100 AB" ]]
+  [[ "$output" =~ "99.964233225 C" ]]
   [ $status -eq 0 ]
 
   fee_balance=$(cleos get currency balance eosio.token fee.sx A)
@@ -142,12 +152,18 @@ load bats.global
   fee_balance=$(cleos get currency balance eosio.token fee.sx B)
   [ "$fee_balance" = "0.0100 B" ]
 
+  fee_balance=$(cleos get currency balance eosio.token fee.sx C)
+  [ "$fee_balance" = "0.010000000 C" ]
+
+  fee_balance=$(cleos get currency balance lptoken.sx fee.sx)
+  [ "$fee_balance" = "0.0100 AB" ]
+
   run cleos push action curve.sx setfee '[4, 0, "fee.sx"]' -p curve.sx
   [ $status -eq 0 ]
 }
 
 
-@test "50 random swaps" {skip
+@test "50 random swaps" {
   symbols="ABC"
   pairs=("AB" "BC" "AC")
   for i in {0..50}
