@@ -90,12 +90,12 @@ load bats.global
 
   run cleos push action curve.sx deposit '["liquidity.sx", "AC"]' -p liquidity.sx
   echo "$output"
-  [[ "$output" =~ "one of the currencies not provided" ]]
+  [[ "$output" =~ "one of the deposit is empty" ]]
   [ $status -eq 1 ]
 
   run cleos push action curve.sx deposit '["myaccount", "AC"]' -p myaccount
   echo "$output"
-  [[ "$output" =~ "no deposits for this user" ]]
+  [[ "$output" =~ "no deposits available for this user" ]]
   [ $status -eq 1 ]
 
   run cleos transfer myaccount curve.sx "100.0000 B" "deposit,AC"
@@ -110,7 +110,7 @@ load bats.global
 
   run cleos push action curve.sx deposit '["liquidity.sx", "BC"]' -p liquidity.sx
   echo "$output"
-  [[ "$output" =~ "no deposits for this user" ]]
+  [[ "$output" =~ "no deposits available for this user" ]]
   [ $status -eq 1 ]
 
   run cleos push action curve.sx cancel '["liquidity.sx", "AB"]' -p liquidity.sx
@@ -140,4 +140,29 @@ load bats.global
   [ "$result" = "$((AC_LIQ/2)).0000 A" ]
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].reserve1.quantity')
   [ "$result" = "$((AC_LIQ/2)).000000000 C" ]
+}
+
+@test "deposit CAB" {
+  run cleos transfer liquidity.sx curve.sx "$((CAB_LIQ)).000000000 C" "deposit,CAB"
+  run cleos transfer liquidity.sx curve.sx "$((CAB_LIQ)).0000 AB" "deposit,CAB" --contract "lptoken.sx"
+  [ $status -eq 0 ]
+
+  result=$(cleos get table curve.sx CAB orders | jq -r '.rows[0].quantity0.quantity')
+  [ "$result" = "$((CAB_LIQ)).0000 AB" ]
+  result=$(cleos get table curve.sx CAB orders | jq -r '.rows[0].quantity1.quantity')
+  [ "$result" = "$((CAB_LIQ)).000000000 C" ]
+
+  run cleos push action curve.sx deposit '["liquidity.sx", "CAB"]' -p liquidity.sx
+  [ $status -eq 0 ]
+
+  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[3].reserve0.quantity')
+  [ "$result" = "$((CAB_LIQ)).0000 AB" ]
+  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[3].reserve1.quantity')
+  [ "$result" = "$((CAB_LIQ)).000000000 C" ]
+  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[3].liquidity.quantity')
+  [ "$result" = "$((2*CAB_LIQ)).000000000 CAB" ]
+  result=$(cleos get currency balance eosio.token liquidity.sx C)
+  [ "$result" = "$((C_LP_TOTAL-AC_LIQ/2-BC_LIQ-CAB_LIQ)).000000000 C" ]
+  result=$(cleos get currency balance lptoken.sx liquidity.sx CAB)
+  [ "$result" = "$((2*CAB_LIQ)).000000000 CAB" ]
 }

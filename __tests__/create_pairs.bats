@@ -33,3 +33,11 @@
   [ $result = BC ]
 }
 
+@test "create CAB" {
+  run cleos push action curve.sx createpair '["curve.sx", "CAB", ["4,AB", "lptoken.sx"], ["9,C", "eosio.token"], 20]' -p curve.sx
+  echo "Output: $output"
+  [ $status -eq 0 ]
+  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[3].id')
+  echo "Output: $output"
+  [ $result = CAB ]
+}

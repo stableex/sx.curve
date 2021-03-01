@@ -10,6 +10,17 @@
 }
 
 @test "withdraw all" {
+  cab_balance=$(cleos get currency balance lptoken.sx liquidity.sx CAB)
+
+  run cleos transfer liquidity.sx curve.sx "$cab_balance" "" --contract lptoken.sx
+  [ $status -eq 0 ]
+  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[3].liquidity.quantity')
+  [ "$result" = "0.000000000 CAB" ]
+  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[3].reserve0.quantity')
+  [ "$result" = "0.0000 AB" ]
+  result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[3].reserve1.quantity')
+  [ "$result" = "0.000000000 C" ]
+
   ac_balance=$(cleos get currency balance lptoken.sx liquidity.sx AC)
   ab_balance=$(cleos get currency balance lptoken.sx liquidity.sx AB)
   bc_balance=$(cleos get currency balance lptoken.sx liquidity.sx BC)
@@ -53,6 +64,10 @@
   [ $status -eq 0 ]
 
   run cleos push action curve.sx removepair '["BC"]' -p curve.sx
+  echo "Output: $output"
+  [ $status -eq 0 ]
+
+  run cleos push action curve.sx removepair '["CAB"]' -p curve.sx
   echo "Output: $output"
   [ $status -eq 0 ]
 
