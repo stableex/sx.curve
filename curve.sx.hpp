@@ -17,16 +17,17 @@ static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
 static constexpr uint8_t MAX_PRECISION = 9;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
-static constexpr uint32_t MIN_RAMP_TIME = 86400; // PRODUCTION = 86400
+static constexpr uint32_t MIN_RAMP_TIME = 86400;
 static constexpr uint32_t MAX_AMPLIFIER = 1000000;
 static constexpr uint32_t MAX_PROTOCOL_FEE = 100;
 static constexpr uint32_t MAX_TRADE_FEE = 50;
 
 // Error messages
-static string ERROR_INVALID_MEMO = "Curve.sx: invalid memo (ex: \"swap,<min_return>,<pair_ids>\" or \"deposit,<pair_id>\"";
-static string ERROR_CONFIG_NOT_EXISTS = "Curve.sx: contract is under maintenance";
+static string ERROR_INVALID_MEMO = "curve.sx: invalid memo (ex: \"swap,<min_return>,<pair_ids>\" or \"deposit,<pair_id>\"";
+static string ERROR_CONFIG_NOT_EXISTS = "curve.sx: contract is under maintenance";
 
 namespace sx {
+
 class [[eosio::contract("curve.sx")]] curve : public eosio::contract {
 public:
     using contract::contract;
@@ -232,6 +233,9 @@ public:
     [[eosio::action]]
     void swaplog( const symbol_code pair_id, const name owner, const name action, const asset quantity_in, const asset quantity_out, const asset fee, const double trade_price, const asset reserve0, const asset reserve1 );
 
+    [[eosio::action]]
+    void calculate( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
+
     using deposit_action = eosio::action_wrapper<"deposit"_n, &sx::curve::deposit>;
     using cancel_action = eosio::action_wrapper<"cancel"_n, &sx::curve::cancel>;
     using createpair_action = eosio::action_wrapper<"createpair"_n, &sx::curve::createpair>;
@@ -242,6 +246,7 @@ public:
     using stopramp_action = eosio::action_wrapper<"stopramp"_n, &sx::curve::stopramp>;
     using liquiditylog_action = eosio::action_wrapper<"liquiditylog"_n, &sx::curve::liquiditylog>;
     using swaplog_action = eosio::action_wrapper<"swaplog"_n, &sx::curve::swaplog>;
+    using calculate_action = eosio::action_wrapper<"calculate"_n, &sx::curve::calculate>;
 
     /**
      * ## STATIC `get_amplifier`
@@ -269,7 +274,7 @@ public:
         sx::curve::ramp_table _ramp( sx::curve::code, sx::curve::code.value );
         sx::curve::pairs_table _pairs( sx::curve::code, sx::curve::code.value );
 
-        auto pairs = _pairs.get( pair_id.raw(), "Curve.sx: invalid pair id" );
+        auto pairs = _pairs.get( pair_id.raw(), "curve.sx::get_amplifier: invalid `pair_id`" );
         auto ramp = _ramp.find( pair_id.raw() );
 
         // if no ramp exists, use pair's amplifier
@@ -324,11 +329,11 @@ public:
 
         // get configs
         auto config = _config.get();
-        auto pairs = _pairs.get( pair_id.raw(), "Curve.sx: invalid pair id" );
+        auto pairs = _pairs.get( pair_id.raw(), "curve.sx::get_amount_out: invalid pair id" );
 
         // inverse reserves based on input quantity
         if (pairs.reserve0.quantity.symbol != in.symbol) std::swap(pairs.reserve0, pairs.reserve1);
-        eosio::check( pairs.reserve0.quantity.symbol == in.symbol, "Curve.sx: no such reserve in pairs");
+        eosio::check( pairs.reserve0.quantity.symbol == in.symbol, "curve.sx::get_amount_out: no such reserve in pairs");
 
         // normalize inputs to max precision
         const uint8_t precision_in = pairs.reserve0.quantity.symbol.precision();
@@ -340,7 +345,7 @@ public:
         const int64_t protocol_fee = amount_in * config.protocol_fee / 10000;
 
         // enforce minimum fee
-        if ( config.trade_fee ) check( in.amount * config.trade_fee / 10000, "Curve.sx: trade quantity too small");
+        if ( config.trade_fee ) check( in.amount * config.trade_fee / 10000, "curve.sx::get_amount_out: trade quantity too small");
 
         // calculate out
         const int64_t out = div_amount( static_cast<int64_t>(Curve::get_amount_out( amount_in - protocol_fee, reserve_in, reserve_out, amplifier, config.trade_fee )), MAX_PRECISION, precision_out );
@@ -350,53 +355,17 @@ public:
 
     static int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
     {
-        check(precision0 >= precision1, "Curve.sx: invalid precisions");
+        check(precision0 >= precision1, "curve.sx::mul_amount: invalid precisions");
         const int64_t res = static_cast<int64_t>( safemath::mul(amount, pow(10, precision0 - precision1 )) );
-        check(res >= 0, "Curve.sx: mul overflow");
+        check(res >= 0, "curve.sx::mul_amount: mul overflow");
         return res;
     }
 
     static int64_t div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
     {
-        check(precision0 >= precision1, "Curve.sx: invalid precisions");
+        check(precision0 >= precision1, "curve.sx::div_amount: invalid precisions");
         return amount / static_cast<int64_t>(pow( 10, precision0 - precision1 ));
     }
-
-    // MAINTENANCE (TESTING ONLY)
-    // TO BE REMOVED FOR PRODUCTION
-    [[eosio::action]]
-    void reset( const name table );
-
-    [[eosio::action]]
-    void backup();
-
-    [[eosio::action]]
-    void copy();
-
-    [[eosio::action]]
-    void update( const symbol_code pair_id );
-
-    [[eosio::action]]
-    void test( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
-
-    // TESTING ONLY
-    struct [[eosio::table("backup")]] backup_row {
-        symbol_code         id;
-        extended_asset      reserve0;
-        extended_asset      reserve1;
-        extended_asset      liquidity;
-        uint64_t            amplifier;
-        double              virtual_price;
-        double              price0_last;
-        double              price1_last;
-        asset               volume0;
-        asset               volume1;
-        uint64_t            trades;
-        time_point_sec      last_updated;
-
-        uint64_t primary_key() const { return id.raw(); }
-    };
-    typedef eosio::multi_index< "backup"_n, backup_row> backup_table;
 
 private:
     // token helpers
@@ -418,9 +387,6 @@ private:
     vector<symbol_code> parse_memo_pair_ids( const string memo );
     double calculate_price( const asset value0, const asset value1 );
     double calculate_virtual_price( const asset value0, const asset value1, const asset supply );
-
-    // MAINTENANCE (TO BE REMOVED IN PRODUCTION)
-    template <typename T>
-    void clear_table( T& table );
 };
-}
+
+} // namespace sx
