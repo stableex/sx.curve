@@ -2,6 +2,22 @@
 
 > Peripheral EOSIO smart contracts for interacting with SX Curve
 
+## SHA256 Checksum
+
+**Local**
+```bash
+$ git checkout v1.0.0
+$ eosio-cpp curve.sx.cpp -I include
+$ shasum -a 256 curve.sx.wasm
+b45f83503df733de92f5656e9c05686384b3554bc710615a39b2160841425d8b  curve.sx.wasm
+```
+
+**EOS Mainnet**
+```bash
+$ cleos -u https://api.eosn.io get code curve.sx
+code hash: b45f83503df733de92f5656e9c05686384b3554bc710615a39b2160841425d8b
+```
+
 ## Quickstart
 
 ### `convert`
