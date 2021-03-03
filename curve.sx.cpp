@@ -517,8 +517,7 @@ vector<symbol_code> curve::parse_memo_pair_ids( const string memo )
 void curve::calculate( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee )
 {
     const uint64_t out = Curve::get_amount_out( amount, reserve_in, reserve_out, amplifier, fee );
-    print("\ncurrent get_amount_out(amount: ", amount, ", amp: ", amplifier, "  ): ", out );
-    check(false, "see print");
+    check(false, "current get_amount_out(amount: " + to_string(amount) + ", amp: " + to_string(amplifier) + "  ): " + to_string(out) );
 }
 
 } // namespace sx

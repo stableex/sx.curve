@@ -9,13 +9,13 @@
 $ git checkout v1.0.0
 $ eosio-cpp curve.sx.cpp -I include
 $ shasum -a 256 curve.sx.wasm
-b45f83503df733de92f5656e9c05686384b3554bc710615a39b2160841425d8b  curve.sx.wasm
+e8960a51393f0d262e6d712af58b8f90d624a65e75096947014465ef77983338  curve.sx.wasm
 ```
 
 **EOS Mainnet**
 ```bash
 $ cleos -u https://api.eosn.io get code curve.sx
-code hash: b45f83503df733de92f5656e9c05686384b3554bc710615a39b2160841425d8b
+code hash: e8960a51393f0d262e6d712af58b8f90d624a65e75096947014465ef77983338
 ```
 
 ## Quickstart
