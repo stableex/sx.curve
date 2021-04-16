@@ -2,7 +2,7 @@
 
 <a href="https://s3.eu-central-1.wasabisys.com/audit-certificates/Smart%20Contract%20Audit%20Certificate%20-%20Sx.curve-final.pdf"><img height=30px src="https://sentnl.io/static/media/sentnl-logo.e5ce1ec4.png" /> Sentnl Audit</a>
 
-> Amplified swap AMM pool highly efficient for stable/stable (correlated assets).
+> SX Curve is an amplified AMM (automated market maker) swap liquidity pool designed efficiently for stable currencies and/or highly correlated assets.
 
 ## SHA256 Checksum
 
