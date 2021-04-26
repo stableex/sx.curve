@@ -199,8 +199,10 @@ namespace utils {
      * ```
      */
     static symbol_code parse_symbol_code(const string& str) {
+        if(str.size() > 7) return {};
+
         for (const auto c: str ) {
-            if( !isalpha(c) || islower(c)) return {};
+            if( c < 'A' || c > 'Z') return {};
         }
         const symbol_code sym_code = symbol_code{ str };
 
