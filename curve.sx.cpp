@@ -24,18 +24,21 @@ void curve::on_transfer( const name from, const name to, const asset quantity, c
     // config
     check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
     const name status = _config.get().status;
-    check( (status == "ok"_n || status == "testing"_n), "curve.sx::on_transfer: contract is under maintenance");
+    check( (status == "ok"_n || status == "testing"_n || status == "withdraw"_n), "curve.sx::on_transfer: contract is under maintenance");
 
     // ignore transfers
     if ( to != get_self() || memo == get_self().to_string() || from == "eosio.ram"_n) return;
 
-    // TEMP - DURING TESTING PERIOD
+    // testing only
     if ( status == "testing"_n ) check( from.suffix() == "sx"_n, "curve.sx::on_transfer: account must be *.sx during testing period");
 
     // user input params
     const auto parsed_memo = parse_memo( memo );
     const extended_asset ext_in = { quantity, get_first_receiver() };
     const bool is_liquidity = _pairs.find( quantity.symbol.code().raw() ) != _pairs.end();
+
+    // only allow liquidity withdraws to be available
+    if ( status == "withdraw"_n ) check( is_liquidity, "curve.sx::on_transfer: only accepts liquidity tokens during `withdraw` status");
 
     // add liquidity (memo required => "deposit,<pair_id>")
     if ( parsed_memo.action == "deposit"_n ) {
