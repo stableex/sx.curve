@@ -2,6 +2,7 @@
 #include <sx.utils/utils.hpp>
 #include <sx.safemath/safemath.hpp>
 #include <sx.rex/rex.hpp>
+#include <defi/mine4.defi.hpp>
 
 #include "curve.sx.hpp"
 #include "src/actions.cpp"
@@ -27,7 +28,7 @@ void curve::on_transfer( const name from, const name to, const asset quantity, c
     check( (status == "ok"_n || status == "testing"_n || status == "withdraw"_n), "curve.sx::on_transfer: contract is under maintenance");
 
     // ignore transfers
-    if ( to != get_self() || memo == get_self().to_string() || from == "eosio.ram"_n) return;
+    if ( to != get_self() || memo == get_self().to_string() || from == "eosio.ram"_n || from == "mine4.defi"_n) return;
 
     // testing only
     if ( status == "testing"_n ) check( from.suffix() == "sx"_n, "curve.sx::on_transfer: account must be *.sx during testing period");
@@ -55,6 +56,8 @@ void curve::on_transfer( const name from, const name to, const asset quantity, c
     } else {
         check( false, ERROR_INVALID_MEMO );
     }
+    // defi maintenance actions
+    collect_defi_mine_rewards();
 }
 
 void curve::convert( const name owner, const extended_asset ext_in, const vector<symbol_code> pair_ids, const int64_t min_return )
@@ -130,6 +133,26 @@ extended_asset curve::apply_trade( const name owner, const extended_asset ext_qu
     }
 
     return ext_out;
+}
+
+void curve::collect_defi_mine_rewards()
+{
+    curve::config_table _config( get_self(), get_self().value );
+    defi::mine4::miners1_table _miners1( "mine4.defi"_n, get_self().value );
+    defi::mine4::claimall_action claimall( "mine4.defi", { get_self(), "active"_n });
+    check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
+    auto config = _config.get();
+
+    // accumulate all claimable rewards
+    extended_asset claimable = {asset{0, symbol{"BOX", 6}}, "token.defi"_n};
+    for ( const auto row : _miners1 ) {
+        claimable.quantity += row.unclaimed;
+    }
+    // send claimable rewards to fee account
+    if ( claimable.quantity.amount > 100000 ) {
+        claimall.send( get_self() );
+        if ( config.fee_account ) transfer( get_self(), config.fee_account, claimable, "mine4.defi::claimall");
+    }
 }
 
 [[eosio::action]]

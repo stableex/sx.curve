@@ -387,6 +387,9 @@ private:
     vector<symbol_code> parse_memo_pair_ids( const string memo );
     double calculate_price( const asset value0, const asset value1 );
     double calculate_virtual_price( const asset value0, const asset value1, const asset supply );
+
+    // defi mine rewards
+    void collect_defi_mine_rewards();
 };
 
 } // namespace sx
