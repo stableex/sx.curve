@@ -338,9 +338,10 @@ public:
         // normalize inputs to max precision
         const uint8_t precision_in = pairs.reserve0.quantity.symbol.precision();
         const uint8_t precision_out = pairs.reserve1.quantity.symbol.precision();
-        const int64_t amount_in = mul_amount( in.amount, MAX_PRECISION, precision_in );
-        const int64_t reserve_in = mul_amount( pairs.reserve0.quantity.amount, MAX_PRECISION, precision_in );
-        const int64_t reserve_out = mul_amount( pairs.reserve1.quantity.amount, MAX_PRECISION, precision_out );
+        const uint8_t precision_norm = max( precision_in, precision_out );
+        const int64_t amount_in = mul_amount( in.amount, precision_norm, precision_in );
+        const int64_t reserve_in = mul_amount( pairs.reserve0.quantity.amount, precision_norm, precision_in );
+        const int64_t reserve_out = mul_amount( pairs.reserve1.quantity.amount, precision_norm, precision_out );
         const uint64_t amplifier = get_amplifier( pair_id );
         const int64_t protocol_fee = amount_in * config.protocol_fee / 10000;
 
@@ -348,7 +349,7 @@ public:
         if ( config.trade_fee ) check( in.amount * config.trade_fee / 10000, "curve.sx::get_amount_out: trade quantity too small");
 
         // calculate out
-        const int64_t out = div_amount( static_cast<int64_t>(Curve::get_amount_out( amount_in - protocol_fee, reserve_in, reserve_out, amplifier, config.trade_fee )), MAX_PRECISION, precision_out );
+        const int64_t out = div_amount( static_cast<int64_t>(Curve::get_amount_out( amount_in - protocol_fee, reserve_in, reserve_out, amplifier, config.trade_fee )), precision_norm, precision_out );
 
         return { out, pairs.reserve1.quantity.symbol };
     }
