@@ -14,7 +14,7 @@ using namespace std;
 
 // Static values
 static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
-static constexpr uint8_t MAX_PRECISION = 9;
+static constexpr uint8_t MAX_PRECISION = 6;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
 static constexpr uint32_t MIN_RAMP_TIME = 86400;
@@ -338,10 +338,9 @@ public:
         // normalize inputs to max precision
         const uint8_t precision_in = pairs.reserve0.quantity.symbol.precision();
         const uint8_t precision_out = pairs.reserve1.quantity.symbol.precision();
-        const uint8_t precision_norm = max( precision_in, precision_out );
-        const int64_t amount_in = mul_amount( in.amount, precision_norm, precision_in );
-        const int64_t reserve_in = mul_amount( pairs.reserve0.quantity.amount, precision_norm, precision_in );
-        const int64_t reserve_out = mul_amount( pairs.reserve1.quantity.amount, precision_norm, precision_out );
+        const int64_t amount_in = mul_amount( in.amount, MAX_PRECISION, precision_in );
+        const int64_t reserve_in = mul_amount( pairs.reserve0.quantity.amount, MAX_PRECISION, precision_in );
+        const int64_t reserve_out = mul_amount( pairs.reserve1.quantity.amount, MAX_PRECISION, precision_out );
         const uint64_t amplifier = get_amplifier( pair_id );
         const int64_t protocol_fee = amount_in * config.protocol_fee / 10000;
 
@@ -349,23 +348,21 @@ public:
         if ( config.trade_fee ) check( in.amount * config.trade_fee / 10000, "curve.sx::get_amount_out: trade quantity too small");
 
         // calculate out
-        const int64_t out = div_amount( static_cast<int64_t>(Curve::get_amount_out( amount_in - protocol_fee, reserve_in, reserve_out, amplifier, config.trade_fee )), precision_norm, precision_out );
+        const int64_t out = div_amount( static_cast<int64_t>(Curve::get_amount_out( amount_in - protocol_fee, reserve_in, reserve_out, amplifier, config.trade_fee )), MAX_PRECISION, precision_out );
 
         return { out, pairs.reserve1.quantity.symbol };
     }
 
     static int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
     {
-        check(precision0 >= precision1, "curve.sx::mul_amount: invalid precisions");
-        const int64_t res = static_cast<int64_t>( safemath::mul(amount, pow(10, precision0 - precision1 )) );
-        check(res >= 0, "curve.sx::mul_amount: mul overflow");
+        const int64_t res = static_cast<int64_t>( precision0 >= precision1 ? safemath::mul(amount, pow(10, precision0 - precision1 )) : amount / static_cast<int64_t>(pow( 10, precision1 - precision0 )));
+        check(res >= 0, "curve.sx::mul_amount: mul/div overflow");
         return res;
     }
 
     static int64_t div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
     {
-        check(precision0 >= precision1, "curve.sx::div_amount: invalid precisions");
-        return amount / static_cast<int64_t>(pow( 10, precision0 - precision1 ));
+        return precision0 >= precision1 ? amount / static_cast<int64_t>(pow( 10, precision0 - precision1 )) : safemath::mul(amount, pow( 10, precision1 - precision0 ));
     }
 
 private:

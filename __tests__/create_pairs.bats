@@ -58,12 +58,7 @@
   [ $status -eq 1 ]
   [[ "$output" =~ "symbol mismatch" ]]
 
-  run cleos push action curve.sx createpair '["curve.sx", "AB", ["4,A", "eosio.token"], ["4,B", "eosio.token"], 20000]' -p curve.sx
+  run cleos push action curve.sx createpair '["curve.sx", "AD", ["4,A", "eosio.token"], ["6,D", "eosio.token"], 2000000]' -p curve.sx
   [ $status -eq 1 ]
   [[ "$output" =~ "invalid amplifier" ]]
-
-  run cleos push action curve.sx createpair '["curve.sx", "BX", ["10,X", "eosio.token"], ["4,B", "eosio.token"], 20]' -p curve.sx
-  echo "Output: $output"
-  [ $status -eq 1 ]
-  [[ "$output" =~ "only tokens with precision" ]]
 }

@@ -34,8 +34,6 @@ cleos push action eosio.token create '["eosio", "2000000000.000000 D"]' -p eosio
 cleos push action eosio.token issue '["eosio", "2000000000.000000 D", "init"]' -p eosio
 cleos push action eosio.token create '["eosio", "2000000000.000000 E"]' -p eosio.token
 cleos push action eosio.token issue '["eosio", "2000000000.000000 E", "init"]' -p eosio
-cleos push action eosio.token create '["eosio", "10000.0000000000 X"]' -p eosio.token
-cleos push action eosio.token issue '["eosio", "5000.0000000000 X", "init"]' -p eosio
 
 # create fake tokens
 cleos push action fake.token create '["eosio", "100000000.0000 A"]' -p fake.token

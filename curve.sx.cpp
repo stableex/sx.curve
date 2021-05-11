@@ -419,7 +419,6 @@ void curve::createpair( const name creator, const symbol_code pair_id, const ext
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "curve.sx::createpair: reserve1 symbol mismatch" );
     check( _pairs.find( pair_id.raw() ) == _pairs.end(), "curve.sx::createpair: `pair_id` already exists" );
     check( amplifier > 0 && amplifier <= MAX_AMPLIFIER, "curve.sx::createpair: invalid amplifier" );
-    check( sym0.precision() <= MAX_PRECISION && sym1.precision() <= MAX_PRECISION, "curve.sx::createpair: only tokens with precision <= `MAX_PRECISION` allowed" );
 
     // create liquidity token
     const extended_symbol liquidity = {{ pair_id, max(sym0.precision(), sym1.precision())}, TOKEN_CONTRACT };
