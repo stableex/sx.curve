@@ -30,6 +30,12 @@ cleos push action eosio.token create '["eosio", "100000000.0000 B"]' -p eosio.to
 cleos push action eosio.token issue '["eosio", "5000000.0000 B", "init"]' -p eosio
 cleos push action eosio.token create '["eosio", "100000000.000000000 C"]' -p eosio.token
 cleos push action eosio.token issue '["eosio", "5000000.000000000 C", "init"]' -p eosio
+cleos push action eosio.token create '["eosio", "2000000000.000000 D"]' -p eosio.token
+cleos push action eosio.token issue '["eosio", "2000000000.000000 D", "init"]' -p eosio
+cleos push action eosio.token create '["eosio", "2000000000.000000 E"]' -p eosio.token
+cleos push action eosio.token issue '["eosio", "2000000000.000000 E", "init"]' -p eosio
+cleos push action eosio.token create '["eosio", "10000.0000000000 X"]' -p eosio.token
+cleos push action eosio.token issue '["eosio", "5000.0000000000 X", "init"]' -p eosio
 
 # create fake tokens
 cleos push action fake.token create '["eosio", "100000000.0000 A"]' -p fake.token
@@ -45,7 +51,11 @@ cleos transfer eosio myaccount "1000000.0000 B" ""
 cleos transfer eosio myaccount "1000000.0000 A" ""
 cleos transfer eosio myaccount "1000000.0000 A" "" --contract fake.token
 cleos transfer eosio myaccount "1000000.000000000 C" ""
+cleos transfer eosio myaccount "10000000.000000 D" ""
+cleos transfer eosio myaccount "10000000.000000 E" ""
 cleos transfer eosio liquidity.sx "$A_LP_TOTAL.0000 B" ""
 cleos transfer eosio liquidity.sx "$B_LP_TOTAL.0000 A" ""
 cleos transfer eosio liquidity.sx "$C_LP_TOTAL.000000000 C" ""
+cleos transfer eosio liquidity.sx "$D_LP_TOTAL.000000 D" ""
+cleos transfer eosio liquidity.sx "$E_LP_TOTAL.000000 E" ""
 cleos transfer eosio liquidity.sx "1000000.0000 AB" "" --contract fake.token
