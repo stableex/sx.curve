@@ -14,7 +14,7 @@ using namespace std;
 
 // Static values
 static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
-static constexpr uint8_t MAX_PRECISION = 9;
+static constexpr uint8_t MAX_PRECISION = 6;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
 static constexpr uint32_t MIN_RAMP_TIME = 86400;
@@ -355,16 +355,14 @@ public:
 
     static int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
     {
-        check(precision0 >= precision1, "curve.sx::mul_amount: invalid precisions");
-        const int64_t res = static_cast<int64_t>( safemath::mul(amount, pow(10, precision0 - precision1 )) );
-        check(res >= 0, "curve.sx::mul_amount: mul overflow");
+        const int64_t res = static_cast<int64_t>( precision0 >= precision1 ? safemath::mul(amount, pow(10, precision0 - precision1 )) : amount / static_cast<int64_t>(pow( 10, precision1 - precision0 )));
+        check(res >= 0, "curve.sx::mul_amount: mul/div overflow");
         return res;
     }
 
     static int64_t div_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
     {
-        check(precision0 >= precision1, "curve.sx::div_amount: invalid precisions");
-        return amount / static_cast<int64_t>(pow( 10, precision0 - precision1 ));
+        return precision0 >= precision1 ? amount / static_cast<int64_t>(pow( 10, precision0 - precision1 )) : safemath::mul(amount, pow( 10, precision1 - precision0 ));
     }
 
 private:

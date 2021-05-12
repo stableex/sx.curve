@@ -176,16 +176,17 @@ void curve::deposit( const name owner, const symbol_code pair_id )
     // symbol helpers
     const symbol sym0 = pair.reserve0.quantity.symbol;
     const symbol sym1 = pair.reserve1.quantity.symbol;
+    const uint8_t precision_norm = max( sym0.precision(), sym1.precision() );
 
     // calculate total deposits based on reserves: reserves ratio should remain the same
     // if reserves empty, fallback to 1
-    const int128_t reserve0 = pair.reserve0.quantity.amount ? mul_amount(pair.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
-    const int128_t reserve1 = pair.reserve1.quantity.amount ? mul_amount(pair.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
+    const int128_t reserve0 = pair.reserve0.quantity.amount ? mul_amount(pair.reserve0.quantity.amount, precision_norm, sym0.precision()) : 1;
+    const int128_t reserve1 = pair.reserve1.quantity.amount ? mul_amount(pair.reserve1.quantity.amount, precision_norm, sym1.precision()) : 1;
     const int128_t reserves = reserve0 + reserve1;
 
     // get owner order and calculate payment
-    const int128_t amount0 = mul_amount(orders.quantity0.quantity.amount, MAX_PRECISION, sym0.precision());
-    const int128_t amount1 = mul_amount(orders.quantity1.quantity.amount, MAX_PRECISION, sym1.precision());
+    const int128_t amount0 = mul_amount(orders.quantity0.quantity.amount, precision_norm, sym0.precision());
+    const int128_t amount1 = mul_amount(orders.quantity1.quantity.amount, precision_norm, sym1.precision());
     const int128_t payment = amount0 + amount1;
 
     // calculate actual amounts to deposit
@@ -194,24 +195,24 @@ void curve::deposit( const name owner, const symbol_code pair_id )
 
     // send back excess deposit to owner
     if (deposit0 < amount0) {
-        const int64_t excess_amount = div_amount(static_cast<int64_t>(amount0 - deposit0), MAX_PRECISION, sym0.precision());
+        const int64_t excess_amount = div_amount(static_cast<int64_t>(amount0 - deposit0), precision_norm, sym0.precision());
         const extended_asset excess = { excess_amount, pair.reserve0.get_extended_symbol() };
         if(excess.quantity.amount) transfer( get_self(), owner, excess, "curve.sx: excess");
     }
     if (deposit1 < amount1) {
-        const int64_t excess_amount = div_amount(static_cast<int64_t>(amount1 - deposit1), MAX_PRECISION, sym1.precision());
+        const int64_t excess_amount = div_amount(static_cast<int64_t>(amount1 - deposit1), precision_norm, sym1.precision());
         const extended_asset excess = { excess_amount, pair.reserve1.get_extended_symbol() };
         if(excess.quantity.amount) transfer( get_self(), owner, excess, "curve.sx: excess");
     }
 
     // normalize final deposits
-    const extended_asset ext_deposit0 = { div_amount(deposit0, MAX_PRECISION, sym0.precision()), pair.reserve0.get_extended_symbol()};
-    const extended_asset ext_deposit1 = { div_amount(deposit1, MAX_PRECISION, sym1.precision()), pair.reserve1.get_extended_symbol()};
+    const extended_asset ext_deposit0 = { div_amount(deposit0, precision_norm, sym0.precision()), pair.reserve0.get_extended_symbol()};
+    const extended_asset ext_deposit1 = { div_amount(deposit1, precision_norm, sym1.precision()), pair.reserve1.get_extended_symbol()};
 
     // issue liquidity
-    const int64_t supply = mul_amount(pair.liquidity.quantity.amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision());
+    const int64_t supply = mul_amount(pair.liquidity.quantity.amount, precision_norm, pair.liquidity.quantity.symbol.precision());
     const int64_t issued_amount = rex::issue(deposit0 + deposit1, reserves, supply, 1);
-    const extended_asset issued = { div_amount(issued_amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision()), pair.liquidity.get_extended_symbol()};
+    const extended_asset issued = { div_amount(issued_amount, precision_norm, pair.liquidity.quantity.symbol.precision()), pair.liquidity.get_extended_symbol()};
 
     // add liquidity deposits & newly issued liquidity
     _pairs.modify(pair, get_self(), [&]( auto & row ) {
@@ -273,15 +274,16 @@ void curve::withdraw_liquidity( const name owner, const extended_asset value )
     const extended_symbol ext_sym1 = pair.reserve1.get_extended_symbol();
     const symbol sym0 = pair.reserve0.quantity.symbol;
     const symbol sym1 = pair.reserve1.quantity.symbol;
+    const uint8_t precision_norm = max( sym0.precision(), sym1.precision() );
 
     // calculate total deposits based on reserves
-    const int64_t supply = mul_amount(pair.liquidity.quantity.amount, MAX_PRECISION, pair.liquidity.quantity.symbol.precision());
-    const int128_t reserve0 = pair.reserve0.quantity.amount ? mul_amount(pair.reserve0.quantity.amount, MAX_PRECISION, sym0.precision()) : 1;
-    const int128_t reserve1 = pair.reserve1.quantity.amount ? mul_amount(pair.reserve1.quantity.amount, MAX_PRECISION, sym1.precision()) : 1;
+    const int64_t supply = mul_amount(pair.liquidity.quantity.amount, precision_norm, pair.liquidity.quantity.symbol.precision());
+    const int128_t reserve0 = pair.reserve0.quantity.amount ? mul_amount(pair.reserve0.quantity.amount, precision_norm, sym0.precision()) : 1;
+    const int128_t reserve1 = pair.reserve1.quantity.amount ? mul_amount(pair.reserve1.quantity.amount, precision_norm, sym1.precision()) : 1;
     const int128_t reserves = reserve0 + reserve1;
 
     // calculate withdraw amounts
-    const int64_t payment = mul_amount(value.quantity.amount, MAX_PRECISION, value.quantity.symbol.precision());
+    const int64_t payment = mul_amount(value.quantity.amount, precision_norm, value.quantity.symbol.precision());
     const int64_t retire_amount = rex::retire( payment, reserves, supply );
 
     // get owner order and calculate payment
@@ -291,8 +293,8 @@ void curve::withdraw_liquidity( const name owner, const extended_asset value )
         amount0 = static_cast<int64_t>( reserve0 );
         amount1 = static_cast<int64_t>( reserve1 );
     }
-    const extended_asset out0 = { div_amount(amount0, MAX_PRECISION, sym0.precision()), ext_sym0 };
-    const extended_asset out1 = { div_amount(amount1, MAX_PRECISION, sym1.precision()), ext_sym1 };
+    const extended_asset out0 = { div_amount(amount0, precision_norm, sym0.precision()), ext_sym0 };
+    const extended_asset out1 = { div_amount(amount1, precision_norm, sym1.precision()), ext_sym1 };
     check( out0.quantity.amount || out1.quantity.amount, "curve.sx::withdraw_liquidity: withdraw amount too small");
 
     // add liquidity deposits & newly issued liquidity
@@ -440,7 +442,6 @@ void curve::createpair( const name creator, const symbol_code pair_id, const ext
     check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "curve.sx::createpair: reserve1 symbol mismatch" );
     check( _pairs.find( pair_id.raw() ) == _pairs.end(), "curve.sx::createpair: `pair_id` already exists" );
     check( amplifier > 0 && amplifier <= MAX_AMPLIFIER, "curve.sx::createpair: invalid amplifier" );
-    check( sym0.precision() <= MAX_PRECISION && sym1.precision() <= MAX_PRECISION, "curve.sx::createpair: only tokens with precision <= `MAX_PRECISION` allowed" );
 
     // create liquidity token
     const extended_symbol liquidity = {{ pair_id, max(sym0.precision(), sym1.precision())}, TOKEN_CONTRACT };
@@ -470,17 +471,19 @@ void curve::createpair( const name creator, const symbol_code pair_id, const ext
 // calculate reserve amounts relative to supply
 double curve::calculate_virtual_price( const asset value0, const asset value1, const asset supply )
 {
-    const int64_t amount0 = mul_amount( value0.amount, MAX_PRECISION, value0.symbol.precision() );
-    const int64_t amount1 = mul_amount( value1.amount, MAX_PRECISION, value1.symbol.precision() );
-    const int64_t amount2 = mul_amount( supply.amount, MAX_PRECISION, supply.symbol.precision() );
+    const uint8_t precision_norm = max( value0.symbol.precision(), value1.symbol.precision() );
+    const int64_t amount0 = mul_amount( value0.amount, precision_norm, value0.symbol.precision() );
+    const int64_t amount1 = mul_amount( value1.amount, precision_norm, value1.symbol.precision() );
+    const int64_t amount2 = mul_amount( supply.amount, precision_norm, supply.symbol.precision() );
     return static_cast<double>( safemath::add(amount0, amount1) ) / amount2;
 }
 
 // calculate last price per trade
 double curve::calculate_price( const asset value0, const asset value1 )
 {
-    const int64_t amount0 = mul_amount( value0.amount, MAX_PRECISION, value0.symbol.precision() );
-    const int64_t amount1 = mul_amount( value1.amount, MAX_PRECISION, value1.symbol.precision() );
+    const uint8_t precision_norm = max( value0.symbol.precision(), value1.symbol.precision() );
+    const int64_t amount0 = mul_amount( value0.amount, precision_norm, value0.symbol.precision() );
+    const int64_t amount1 = mul_amount( value1.amount, precision_norm, value1.symbol.precision() );
     return static_cast<double>(amount0) / amount1;
 }
 
