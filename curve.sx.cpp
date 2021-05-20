@@ -25,7 +25,7 @@ void curve::on_transfer( const name from, const name to, const asset quantity, c
     // config
     check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
     const name status = _config.get().status;
-    check( (status == "ok"_n || status == "testing"_n || status == "withdraw"_n), "curve.sx::on_transfer: contract is under maintenance");
+    check( (status == "ok"_n || status == "testing"_n || status == "withdraw"_n || status == "swap"_n ), "curve.sx::on_transfer: contract is under maintenance");
 
     // ignore transfers
     if ( to != get_self() || memo == get_self().to_string() || from == "eosio.ram"_n || from == "mine4.defi"_n) return;
@@ -43,6 +43,7 @@ void curve::on_transfer( const name from, const name to, const asset quantity, c
 
     // add liquidity (memo required => "deposit,<pair_id>")
     if ( parsed_memo.action == "deposit"_n ) {
+        if ( status == "swap"_n ) check( from.suffix() == "sx"_n, "curve.sx::on_transfer: only *.sx accounts can deposit during swap mode");
         add_liquidity( from, parsed_memo.pair_ids[0], ext_in );
 
     // swap convert (memo required => "swap,<min_return>,<pair_ids>")
