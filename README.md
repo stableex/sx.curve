@@ -1,8 +1,11 @@
 # **`SX Curve`**
 
-<a href="https://s3.eu-central-1.wasabisys.com/audit-certificates/Smart%20Contract%20Audit%20Certificate%20-%20Sx.curve-final.pdf"><img height=30px src="https://sentnl.io/static/media/sentnl-logo.e5ce1ec4.png" /> Sentnl Audit</a>
-
 > SX Curve is an amplified AMM (automated market maker) swap liquidity pool designed efficiently for stable currencies and/or highly correlated assets.
+
+## Audits
+
+- <a href="https://www.knownsec.com"><img height=30px src="https://user-images.githubusercontent.com/550895/120322175-1fe4fd00-c2b2-11eb-96bb-402dec711e38.png" /> KnownSec</a> (2021-05)
+- <a href="https://s3.eu-central-1.wasabisys.com/audit-certificates/Smart%20Contract%20Audit%20Certificate%20-%20Sx.curve-final.pdf"><img height=30px src="https://sentnl.io/static/media/sentnl-logo.e5ce1ec4.png" /> Sentnl Audit</a> (2020-03)
 
 ## SHA256 Checksum
 
