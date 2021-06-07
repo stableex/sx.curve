@@ -2,7 +2,9 @@
 
 # unlock wallet
 cleos wallet unlock --password $(cat ~/eosio-wallet/.pass)
+
 # settings
+cleos push action curve.sx init '["lptoken.sx"]' -p curve.sx
 cleos push action curve.sx setfee '[10, 10, "fee.sx"]' -p curve.sx
 cleos push action curve.sx setstatus '["ok"]' -p curve.sx
 

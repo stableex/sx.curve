@@ -13,7 +13,6 @@ using namespace eosio;
 using namespace std;
 
 // Static values
-static constexpr name TOKEN_CONTRACT = "lptoken.sx"_n;
 static constexpr uint8_t MAX_PRECISION = 6;
 static constexpr int64_t asset_mask{(1LL << 62) - 1};
 static constexpr int64_t asset_max{ asset_mask }; //  4611686018427387903
@@ -43,6 +42,8 @@ public:
      * - `{uint8_t} trade_fee` - trading fee (pips 1/100 of 1%)
      * - `{uint8_t} protocol_fee` - trading fee (pips 1/100 of 1%)
      * - `{name} fee_account` - protocol fee are transfered to account
+     * - `{name} token_contract` - LP token contract account
+     * - `{vector<name>} notifiers` - accounts to be notified via inline action
      *
      * ### example
      *
@@ -51,15 +52,19 @@ public:
      *   "status": "ok",
      *   "trade_fee": 4,
      *   "protocol_fee": 0,
-     *   "fee_account": "fee.sx"
+     *   "fee_account": "fee.sx",
+     *   "token_contract": "lptoken.sx",
+     *   "notifiers": ["stats.sx"]
      * }
      * ```
      */
     struct [[eosio::table("config")]] config_row {
         name                status = "testing"_n;
         uint8_t             trade_fee = 4;
-        uint8_t             protocol_fee = 0;
+        uint8_t             protocol_fee = 1;
         name                fee_account = "fee.sx"_n;
+        name                token_contract = "lptoken.sx"_n;
+        vector<name>        notifiers = {"stats.sx"_n, "whitelist.sx"_n, "timelock.sx"_n, "maxasset.sx"_n};
     };
     typedef eosio::singleton< "config"_n, config_row > config_table;
 
@@ -210,10 +215,19 @@ public:
 
     // ADMIN
     [[eosio::action]]
+    void init( const name token_contract );
+
+    [[eosio::action]]
+    void reset();
+
+    [[eosio::action]]
     void createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier );
 
     [[eosio::action]]
     void removepair( const symbol_code pair_id );
+
+    [[eosio::action]]
+    void setnotifiers( const vector<name> notifiers );
 
     [[eosio::action]]
     void setfee( const uint8_t trade_fee, const optional<uint8_t> protocol_fee, const optional<name> fee_account );
@@ -236,11 +250,14 @@ public:
     [[eosio::action]]
     void calculate( const uint64_t amount, const uint64_t reserve_in, const uint64_t reserve_out, const uint64_t amplifier, const uint64_t fee );
 
+    using init_action = eosio::action_wrapper<"init"_n, &sx::curve::init>;
+    using reset_action = eosio::action_wrapper<"reset"_n, &sx::curve::reset>;
     using deposit_action = eosio::action_wrapper<"deposit"_n, &sx::curve::deposit>;
     using cancel_action = eosio::action_wrapper<"cancel"_n, &sx::curve::cancel>;
     using createpair_action = eosio::action_wrapper<"createpair"_n, &sx::curve::createpair>;
     using removepair_action = eosio::action_wrapper<"removepair"_n, &sx::curve::removepair>;
     using setfee_action = eosio::action_wrapper<"setfee"_n, &sx::curve::setfee>;
+    using setnotifiers_action = eosio::action_wrapper<"setnotifiers"_n, &sx::curve::setnotifiers>;
     using setstatus_action = eosio::action_wrapper<"setstatus"_n, &sx::curve::setstatus>;
     using ramp_action = eosio::action_wrapper<"ramp"_n, &sx::curve::ramp>;
     using stopramp_action = eosio::action_wrapper<"stopramp"_n, &sx::curve::stopramp>;
@@ -385,6 +402,7 @@ private:
     vector<symbol_code> parse_memo_pair_ids( const string memo );
     double calculate_price( const asset value0, const asset value1 );
     double calculate_virtual_price( const asset value0, const asset value1, const asset supply );
+    void notify();
 };
 
 } // namespace sx

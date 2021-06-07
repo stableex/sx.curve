@@ -56,6 +56,35 @@ void curve::on_transfer( const name from, const name to, const asset quantity, c
     } else {
         check( false, ERROR_INVALID_MEMO );
     }
+
+    // accounts to be notified via inline action
+    notify();
+}
+
+[[eosio::action]]
+void curve::init( const name token_contract )
+{
+    require_auth( get_self() );
+
+    curve::config_table _config( get_self(), get_self().value );
+    auto config = _config.exists() ? _config.get() : curve::config_row{};
+
+    // token contract can not be modified once initialized
+    check( is_account( config.token_contract ), "curve.sx::init: `token_contract` does not exist");
+    if ( config.token_contract.value ) check( config.token_contract == token_contract, "curve.sx::init: `token_contract` cannot be modified once initialized");
+
+    // set config
+    config.token_contract = token_contract;
+    _config.set( config, get_self() );
+}
+
+[[eosio::action]]
+void curve::reset()
+{
+    require_auth( get_self() );
+
+    curve::config_table _config( get_self(), get_self().value );
+    _config.remove();
 }
 
 void curve::convert( const name owner, const extended_asset ext_in, const vector<symbol_code> pair_ids, const int64_t min_return )
@@ -74,6 +103,7 @@ extended_asset curve::apply_trade( const name owner, const extended_asset ext_qu
 {
     curve::pairs_table _pairs( get_self(), get_self().value );
     curve::config_table _config( get_self(), get_self().value );
+    check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
     auto config = _config.get();
 
     // initial quantities
@@ -368,7 +398,8 @@ void curve::setfee( const uint8_t trade_fee, const optional<uint8_t> protocol_fe
 
     // config
     curve::config_table _config( get_self(), get_self().value );
-    auto config = _config.get_or_default();
+    check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
+    auto config = _config.get();
 
     // required params
     check( trade_fee <= MAX_TRADE_FEE, "curve.sx::setfee: `trade_fee` has exceeded maximum limit");
@@ -385,13 +416,30 @@ void curve::setfee( const uint8_t trade_fee, const optional<uint8_t> protocol_fe
     _config.set( config, get_self() );
 }
 
+
+[[eosio::action]]
+void curve::setnotifiers( const vector<name> notifiers )
+{
+    require_auth( get_self() );
+
+    for ( const name notifier : notifiers ) {
+        check( is_account( notifier ), "curve.sx::setnotifiers: `notifier` does not exist");
+    }
+    curve::config_table _config( get_self(), get_self().value );
+    check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
+    auto config = _config.get();
+    config.notifiers = notifiers;
+    _config.set( config, get_self() );
+}
+
 [[eosio::action]]
 void curve::setstatus( const name status )
 {
     require_auth( get_self() );
 
     curve::config_table _config( get_self(), get_self().value );
-    auto config = _config.get_or_default();
+    check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
+    auto config = _config.get();
     config.status = status;
     _config.set( config, get_self() );
 }
@@ -406,6 +454,8 @@ void curve::createpair( const name creator, const symbol_code pair_id, const ext
     // tables
     curve::pairs_table _pairs( get_self(), get_self().value );
     curve::config_table _config( get_self(), get_self().value );
+    check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
+    const name token_contract = _config.get().token_contract;
 
     // reserve params
     const name contract0 = reserve0.get_contract();
@@ -422,10 +472,10 @@ void curve::createpair( const name creator, const symbol_code pair_id, const ext
     check( amplifier > 0 && amplifier <= MAX_AMPLIFIER, "curve.sx::createpair: invalid amplifier" );
 
     // create liquidity token
-    const extended_symbol liquidity = {{ pair_id, max(sym0.precision(), sym1.precision())}, TOKEN_CONTRACT };
+    const extended_symbol liquidity = {{ pair_id, max(sym0.precision(), sym1.precision())}, token_contract };
 
     // in case supply already exists
-    token::stats _stats( TOKEN_CONTRACT, pair_id.raw() );
+    token::stats _stats( token_contract, pair_id.raw() );
     auto stats_itr = _stats.find( pair_id.raw() );
 
     // create token if supply does not exist
