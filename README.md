@@ -11,7 +11,7 @@
 
 **Local**
 ```bash
-$ git checkout v1.0.0
+$ git checkout v1.0.1
 $ eosio-cpp curve.sx.cpp -I include
 $ shasum -a 256 curve.sx.wasm
 abb4b445cac42c9e0a1ceac33dc7e9c36a1452eb89bdff05b907cf3936b2ff9c  curve.sx.wasm
