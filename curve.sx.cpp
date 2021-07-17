@@ -118,7 +118,7 @@ extended_asset curve::apply_trade( const name owner, const extended_asset ext_qu
         const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
 
         // validate input quantity & reserves
-        check(reserve_in.get_extended_symbol() == ext_in.get_extended_symbol(), "curve.sx::apply_trade: incoming currency/reserves contract mismatch");
+        check(reserve_in.get_extended_symbol() == ext_in.get_extended_symbol(), "curve.sx::apply_trade: invalid extended symbol");
         check(reserve_in.quantity.amount != 0 && reserve_out.quantity.amount != 0, "curve.sx::apply_trade: empty pool reserves");
 
         // calculate out
@@ -278,7 +278,7 @@ void curve::withdraw_liquidity( const name owner, const extended_asset value )
     auto & pair = _pairs.get( pair_id.raw(), "curve.sx::withdraw_liquidity: `pair_id` does not exist");
 
     // prevent invalid liquidity token contracts
-    check(pair.liquidity.get_extended_symbol() == value.get_extended_symbol(), "curve.sx::withdraw_liquidity: invalid liquidity contract");
+    check(pair.liquidity.get_extended_symbol() == value.get_extended_symbol(), "curve.sx::withdraw_liquidity: invalid extended symbol");
 
     // extended symbols
     const extended_symbol ext_sym0 = pair.reserve0.get_extended_symbol();
@@ -348,7 +348,7 @@ void curve::add_liquidity( const name owner, const symbol_code pair_id, const ex
         // add & validate deposit
         if ( ext_sym_in == ext_sym0 ) row.quantity0 += value;
         else if ( ext_sym_in == ext_sym1 ) row.quantity1 += value;
-        else check( false, "curve.sx::add_liquidity: invalid extended symbol when adding liquidity");
+        else check( false, "curve.sx::add_liquidity: invalid extended symbol");
     };
 
     // create/modify order
@@ -469,8 +469,8 @@ void curve::createpair( const name creator, const symbol_code pair_id, const ext
     // check reserves
     check( is_account( contract0 ), "curve.sx::createpair: reserve0 contract does not exists");
     check( is_account( contract1 ), "curve.sx::createpair: reserve1 contract does not exists");
-    check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "curve.sx::createpair: reserve0 symbol mismatch" );
-    check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "curve.sx::createpair: reserve1 symbol mismatch" );
+    check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "curve.sx::createpair: reserve0 extended symbol mismatch supply" );
+    check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "curve.sx::createpair: reserve1 extended symbol mismatch supply" );
     check( _pairs.find( pair_id.raw() ) == _pairs.end(), "curve.sx::createpair: `pair_id` already exists" );
     check( amplifier > 0 && amplifier <= MAX_AMPLIFIER, "curve.sx::createpair: invalid amplifier" );
 
