@@ -41,7 +41,7 @@ $ cleos transfer myaccount curve.sx "10.0000 USDT" "swap,0,SXA" --contract tethe
 ```bash
 $ cleos transfer myaccount curve.sx "10.0000 USDT" "deposit,SXA" --contract tethertether
 $ cleos transfer myaccount curve.sx "10.0000 USN" "deposit,SXA" --contract danchortoken
-$ cleos push action curve.sx deposit '["myaccount", "SXA"]' -p myaccount
+$ cleos push action curve.sx deposit '["myaccount", "SXA", null]' -p myaccount
 # => receive "20.0000 SXA@lptoken.sx"
 ```
 

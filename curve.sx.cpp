@@ -164,7 +164,7 @@ extended_asset curve::apply_trade( const name owner, const extended_asset ext_qu
 }
 
 [[eosio::action]]
-void curve::deposit( const name owner, const symbol_code pair_id )
+void curve::deposit( const name owner, const symbol_code pair_id, const optional<int64_t> min_amount )
 {
     require_auth( owner );
 
@@ -236,6 +236,9 @@ void curve::deposit( const name owner, const symbol_code pair_id )
     // issue & transfer to owner
     issue( issued, "curve.sx: deposit" );
     transfer( get_self(), owner, issued, "curve.sx: deposit");
+
+    // deposit slippage protection
+    if ( min_amount ) check( issued.quantity.amount >= min_amount, "curve.sx::deposit: deposit amount must exceed `min_amount`");
 
     // delete any remaining liquidity deposit order
     _orders.erase( orders );
