@@ -205,7 +205,7 @@ public:
 
     // USER
     [[eosio::action]]
-    void deposit( const name owner, const symbol_code pair_id );
+    void deposit( const name owner, const symbol_code pair_id, const optional<int64_t> min_amount );
 
     [[eosio::action]]
     void cancel( const name owner, const symbol_code pair_id );
