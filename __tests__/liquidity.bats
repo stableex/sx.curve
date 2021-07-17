@@ -100,12 +100,12 @@ load bats.global
 
   run cleos transfer myaccount curve.sx "100.0000 B" "deposit,AC"
   echo "$output"
-  [[ "$output" =~ "invalid extended symbol when adding liquidity" ]]
+  [[ "$output" =~ "invalid extended symbol" ]]
   [ $status -eq 1 ]
 
   run cleos transfer myaccount curve.sx "1000.0000 A" "deposit,AB" --contract fake.token
   echo "$output"
-  [[ "$output" =~ "invalid extended symbol when adding liquidity" ]]
+  [[ "$output" =~ "invalid extended symbol" ]]
   [ $status -eq 1 ]
 
   run cleos push action curve.sx deposit '["liquidity.sx", "BC", null]' -p liquidity.sx
