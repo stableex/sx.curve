@@ -192,8 +192,11 @@ load bats.global
   run cleos transfer liquidity.sx curve.sx "1.0000 A" "deposit,AB"
   run cleos transfer liquidity.sx curve.sx "1.0000 B" "deposit,AB"
 
-  run cleos push action curve.sx deposit '["liquidity.sx", "DE", 9999999999]' -p liquidity.sx
+  run cleos push action curve.sx deposit '["liquidity.sx", "AB", 9999999999]' -p liquidity.sx
   echo "$output"
   [[ "$output" =~ "deposit amount must exceed" ]]
   [ $status -eq 1 ]
+
+  run cleos push action curve.sx cancel '["liquidity.sx", "AB"]' -p liquidity.sx
+  [ $status -eq 0 ]
 }
