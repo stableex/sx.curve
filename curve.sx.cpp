@@ -238,7 +238,7 @@ void curve::deposit( const name owner, const symbol_code pair_id, const optional
     transfer( get_self(), owner, issued, "curve.sx: deposit");
 
     // deposit slippage protection
-    if ( min_amount ) check( issued.quantity.amount >= min_amount, "curve.sx::deposit: deposit amount must exceed `min_amount`");
+    if ( min_amount ) check( issued.quantity.amount >= *min_amount, "curve.sx::deposit: deposit amount must exceed `min_amount`");
 
     // delete any remaining liquidity deposit order
     _orders.erase( orders );
