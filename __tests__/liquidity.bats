@@ -11,7 +11,7 @@ load bats.global
   result=$(cleos get table curve.sx AB orders | jq -r '.rows[0].quantity1.quantity')
   [ "$result" = "$((AB_LIQ)).0000 B" ]
 
-  run cleos push action curve.sx deposit '["liquidity.sx", "AB"]' -p liquidity.sx
+  run cleos push action curve.sx deposit '["liquidity.sx", "AB", null]' -p liquidity.sx
 
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[0].reserve0.quantity')
   [ "$result" = "$((AB_LIQ)).0000 A" ]
@@ -36,7 +36,7 @@ load bats.global
   result=$(cleos get currency balance eosio.token liquidity.sx B)
   [ "$result" = "$((B_LP_TOTAL-AB_LIQ-BC_LIQ-100)).0000 B" ]
 
-  run cleos push action curve.sx deposit '["liquidity.sx", "BC"]' -p liquidity.sx
+  run cleos push action curve.sx deposit '["liquidity.sx", "BC", null]' -p liquidity.sx
 
   result=$(cleos get currency balance eosio.token liquidity.sx B)
   [ "$result" = "$((B_LP_TOTAL-AB_LIQ-BC_LIQ)).0000 B" ]
@@ -62,7 +62,7 @@ load bats.global
   result=$(cleos get table curve.sx AC orders | jq -r '.rows[0].quantity1.quantity')
   [ "$result" = "$((AC_LIQ)).000000000 C" ]
 
-  run cleos push action curve.sx deposit '["liquidity.sx", "AC"]' -p liquidity.sx
+  run cleos push action curve.sx deposit '["liquidity.sx", "AC", null]' -p liquidity.sx
   [ $status -eq 0 ]
 
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[1].reserve0.quantity')
@@ -88,27 +88,27 @@ load bats.global
   [[ "$output" =~ "does not exist" ]]
   [ $status -eq 1 ]
 
-  run cleos push action curve.sx deposit '["liquidity.sx", "AC"]' -p liquidity.sx
+  run cleos push action curve.sx deposit '["liquidity.sx", "AC", null]' -p liquidity.sx
   echo "$output"
   [[ "$output" =~ "one of the deposit is empty" ]]
   [ $status -eq 1 ]
 
-  run cleos push action curve.sx deposit '["myaccount", "AC"]' -p myaccount
+  run cleos push action curve.sx deposit '["myaccount", "AC", null]' -p myaccount
   echo "$output"
   [[ "$output" =~ "no deposits available for this user" ]]
   [ $status -eq 1 ]
 
   run cleos transfer myaccount curve.sx "100.0000 B" "deposit,AC"
   echo "$output"
-  [[ "$output" =~ "invalid extended symbol when adding liquidity" ]]
+  [[ "$output" =~ "invalid extended symbol" ]]
   [ $status -eq 1 ]
 
   run cleos transfer myaccount curve.sx "1000.0000 A" "deposit,AB" --contract fake.token
   echo "$output"
-  [[ "$output" =~ "invalid extended symbol when adding liquidity" ]]
+  [[ "$output" =~ "invalid extended symbol" ]]
   [ $status -eq 1 ]
 
-  run cleos push action curve.sx deposit '["liquidity.sx", "BC"]' -p liquidity.sx
+  run cleos push action curve.sx deposit '["liquidity.sx", "BC", null]' -p liquidity.sx
   echo "$output"
   [[ "$output" =~ "no deposits available for this user" ]]
   [ $status -eq 1 ]
@@ -152,7 +152,7 @@ load bats.global
   result=$(cleos get table curve.sx CAB orders | jq -r '.rows[0].quantity1.quantity')
   [ "$result" = "$((CAB_LIQ)).000000000 C" ]
 
-  run cleos push action curve.sx deposit '["liquidity.sx", "CAB"]' -p liquidity.sx
+  run cleos push action curve.sx deposit '["liquidity.sx", "CAB", null]' -p liquidity.sx
   [ $status -eq 0 ]
 
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[4].reserve0.quantity')
@@ -176,7 +176,7 @@ load bats.global
   result=$(cleos get table curve.sx DE orders | jq -r '.rows[0].quantity1.quantity')
   [ "$result" = "$((DE_LIQ)).000000 E" ]
 
-  run cleos push action curve.sx deposit '["liquidity.sx", "DE"]' -p liquidity.sx
+  run cleos push action curve.sx deposit '["liquidity.sx", "DE", null]' -p liquidity.sx
 
   result=$(cleos get table curve.sx curve.sx pairs | jq -r '.rows[3].reserve0.quantity')
   [ "$result" = "$((DE_LIQ)).000000 D" ]
@@ -186,4 +186,17 @@ load bats.global
   [ "$result" = "$((2*DE_LIQ)).000000 DE" ]
   result=$(cleos get currency balance lptoken.sx liquidity.sx DE)
   [ "$result" = "$((2*DE_LIQ)).000000 DE" ]
+}
+
+@test "deposit slippage protection" {
+  run cleos transfer liquidity.sx curve.sx "1.0000 A" "deposit,AB"
+  run cleos transfer liquidity.sx curve.sx "1.0000 B" "deposit,AB"
+
+  run cleos push action curve.sx deposit '["liquidity.sx", "AB", 9999999999]' -p liquidity.sx
+  echo "$output"
+  [[ "$output" =~ "deposit amount must exceed" ]]
+  [ $status -eq 1 ]
+
+  run cleos push action curve.sx cancel '["liquidity.sx", "AB"]' -p liquidity.sx
+  [ $status -eq 0 ]
 }
