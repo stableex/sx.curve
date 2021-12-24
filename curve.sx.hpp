@@ -213,6 +213,9 @@ public:
     [[eosio::on_notify("*::transfer")]]
     void on_transfer( const name from, const name to, const asset quantity, const std::string memo );
 
+    [[eosio::on_notify("token.pcash::notify")]]
+    void on_pcash_notify( const string action_type, const name to, const name from, const asset quantity, const std::string memo );
+
     // ADMIN
     [[eosio::action]]
     void init( const name token_contract );

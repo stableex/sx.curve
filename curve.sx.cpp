@@ -15,7 +15,8 @@ namespace sx {
 void curve::on_transfer( const name from, const name to, const asset quantity, const string memo )
 {
     // authenticate incoming `from` account
-    require_auth( from );
+    if ( get_first_receiver() == "token.pcash"_n ) require_auth( "token.pcash"_n );
+    else require_auth( from );
 
     // tables
     curve::config_table _config( get_self(), get_self().value );
@@ -59,6 +60,12 @@ void curve::on_transfer( const name from, const name to, const asset quantity, c
 
     // accounts to be notified via inline action
     notify();
+}
+
+[[eosio::on_notify("token.pcash::notify")]]
+void curve::on_pcash_notify( const string action_type, const name to, const name from, const asset quantity, const std::string memo )
+{
+    if ( action_type == "transfer received" ) on_transfer( from, to, quantity, memo );
 }
 
 [[eosio::action]]
