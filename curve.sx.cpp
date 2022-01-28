@@ -271,8 +271,8 @@ void curve::removepair( const symbol_code pair_id )
     require_auth( get_self() );
 
     curve::pairs_table _pairs( get_self(), get_self().value );
-    auto & pair = _pairs.get( pair_id.raw(), "curve.sx::removepair: `pair_id` does not exist");
-    check( !pair.liquidity.quantity.amount, "curve.sx::removepair: liquidity must be empty before removing");
+    auto & pair = _pairs.get( pair_id.raw(), "curve.sx::removepair: [pair_id] does not exist");
+    check( pair.liquidity.quantity.amount <= 10, "curve.sx::removepair: liquidity amount must be below 10 to remove");
     _pairs.erase( pair );
 }
 
