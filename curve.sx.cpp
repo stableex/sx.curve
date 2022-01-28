@@ -272,7 +272,8 @@ void curve::removepair( const symbol_code pair_id )
 
     curve::pairs_table _pairs( get_self(), get_self().value );
     auto & pair = _pairs.get( pair_id.raw(), "curve.sx::removepair: [pair_id] does not exist");
-    check( pair.liquidity.quantity.amount <= 10, "curve.sx::removepair: liquidity amount must be below 10 to remove");
+    const int64_t min_amount = 10 * pow( 10, pair.liquidity.quantity.symbol.precision());
+    check( pair.liquidity.quantity.amount <= min_amount, "curve.sx::removepair: liquidity amount must be below 10 to remove");
     _pairs.erase( pair );
 }
 
