@@ -446,8 +446,8 @@ void curve::setstatus( const name status )
 [[eosio::action]]
 void curve::createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier )
 {
-    // `creator` must be contract itself during beta period
-    if ( !has_auth( get_self() ) ) check( false, "curve::createpair: `creator` is disabled from creating pair during beta period");
+    // `creator` must be contract
+    check( creator == get_self(), "curve::createpair: only contract admin can create pair");
     require_auth( creator );
 
     // tables
