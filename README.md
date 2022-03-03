@@ -22,8 +22,8 @@ a9aa7e60901cfc3ffe481099daa7f13f0b9cdba19c64ffd18aa5789932336f8c  curve.sx.wasm
 
 **EOS Mainnet**
 ```bash
-$ cleos -u https://api.eosn.io get code curve.sx
-code hash: 9126cde6ddd504df91922aff921f42e5a5618b6d38df5184c865dc4112ac4880
+$ cleos -u https://eos.greymass.com get code curve.sx
+code hash: a9aa7e60901cfc3ffe481099daa7f13f0b9cdba19c64ffd18aa5789932336f8c
 ```
 
 ## Quickstart
