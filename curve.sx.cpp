@@ -66,7 +66,7 @@ void curve::init( const name token_contract )
     auto config = _config.exists() ? _config.get() : curve::config_row{};
 
     // token contract can not be modified once initialized
-    check( is_account( config.token_contract ), "curve::init: `token_contract` does not exist");
+    check( is_account( token_contract ), "curve::init: `token_contract` does not exist");
     if ( config.token_contract.value ) check( config.token_contract == token_contract, "curve::init: `token_contract` cannot be modified once initialized");
 
     // set config
@@ -118,7 +118,7 @@ extended_asset curve::apply_trade( const name owner, const extended_asset ext_qu
         check(reserve_in.quantity.amount != 0 && reserve_out.quantity.amount != 0, "curve::apply_trade: empty pool reserves");
 
         // calculate out
-        ext_out = { get_amount_out( ext_in.quantity, pair_id ), reserve_out.contract };
+        ext_out = { get_amount_out( ext_in.quantity, pair_id, get_self() ), reserve_out.contract };
 
         // send protocol fees to fee account
         const extended_asset protocol_fee = { ext_in.quantity.amount * config.protocol_fee / 10000, ext_in.get_extended_symbol() };
@@ -138,7 +138,7 @@ extended_asset curve::apply_trade( const name owner, const extended_asset ext_qu
             }
             // calculate last price
             const double price = calculate_price( ext_in.quantity, ext_out.quantity );
-            row.amplifier = get_amplifier( pair_id );
+            row.amplifier = get_amplifier( pair_id, get_self() );
             row.virtual_price = calculate_virtual_price( row.reserve0.quantity, row.reserve1.quantity, row.liquidity.quantity );
             row.price0_last = is_in ? 1 / price : price;
             row.price1_last = is_in ? price : 1 / price;

@@ -5,23 +5,30 @@ cleos wallet unlock --password $(cat ~/eosio-wallet/.pass)
 
 # create account
 cleos create account eosio curve.sx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
+cleos create account eosio curve.defi EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 cleos create account eosio eosio.token EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 cleos create account eosio fake.token EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 cleos create account eosio myaccount EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 cleos create account eosio myaccount2 EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 cleos create account eosio fee.sx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 cleos create account eosio lptoken.sx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
+cleos create account eosio lptoken.defi EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 cleos create account eosio liquidity.sx EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 
 # contract
 cleos set contract curve.sx . curve.sx.wasm curve.sx.abi
+cleos set contract curve.defi . curve.sx.wasm curve.sx.abi
 cleos set contract lptoken.sx ./include/eosio.token eosio.token.wasm eosio.token.abi
+cleos set contract lptoken.defi ./include/eosio.token eosio.token.wasm eosio.token.abi
 cleos set contract eosio.token ./include/eosio.token eosio.token.wasm eosio.token.abi
 cleos set contract fake.token ./include/eosio.token eosio.token.wasm eosio.token.abi
 
 # @eosio.code permission
 cleos set account permission curve.sx active --add-code
 cleos set account permission lptoken.sx active curve.sx --add-code
+
+cleos set account permission curve.defi active --add-code
+cleos set account permission lptoken.defi active curve.defi --add-code
 
 # create tokens
 cleos push action eosio.token create '["eosio", "100000000.0000 A"]' -p eosio.token

@@ -50,7 +50,7 @@ public:
      * ```json
      * {
      *   "status": "ok",
-     *   "trade_fee": 4,
+     *   "trade_fee": 5,
      *   "protocol_fee": 0,
      *   "fee_account": "fee.sx",
      *   "token_contract": "lptoken.sx",
@@ -60,11 +60,11 @@ public:
      */
     struct [[eosio::table("config")]] config_row {
         name                status = "testing"_n;
-        uint8_t             trade_fee = 4;
-        uint8_t             protocol_fee = 1;
-        name                fee_account = "fee.sx"_n;
-        name                token_contract = "lptoken.sx"_n;
-        vector<name>        notifiers = {"stats.sx"_n, "whitelist.sx"_n, "timelock.sx"_n, "maxasset.sx"_n};
+        uint8_t             trade_fee = 5;
+        uint8_t             protocol_fee = 0;
+        name                fee_account;
+        name                token_contract;
+        vector<name>        notifiers;
     };
     typedef eosio::singleton< "config"_n, config_row > config_table;
 
@@ -340,8 +340,8 @@ public:
      */
     static asset get_amount_out( const asset in, const symbol_code pair_id, const name code = sx::curve::code )
     {
-        sx::curve::config_table _config( sx::curve::code, sx::curve::code.value );
-        sx::curve::pairs_table _pairs( sx::curve::code, sx::curve::code.value );
+        sx::curve::config_table _config( code, code.value );
+        sx::curve::pairs_table _pairs( code, code.value );
         check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
 
         // get configs
