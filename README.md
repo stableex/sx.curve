@@ -17,7 +17,7 @@ $ eosio-cpp --version
 eosio-cpp version 1.7.0
 $ eosio-cpp curve.sx.cpp -I include
 $ shasum -a 256 curve.sx.wasm
-c5719e5c0cb408e99004614baeee885fe510bedd3f905acf496b20aa725fe3ed  curve.sx.wasm
+a9aa7e60901cfc3ffe481099daa7f13f0b9cdba19c64ffd18aa5789932336f8c  curve.sx.wasm
 ```
 
 **EOS Mainnet**
