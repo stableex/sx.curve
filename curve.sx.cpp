@@ -24,7 +24,7 @@ void curve::on_transfer( const name from, const name to, const asset quantity, c
     // config
     check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
     const name status = _config.get().status;
-    check( status == "ok"_n, "curve::on_transfer: contract is under maintenance");
+    check( (status == "ok"_n || status == "withdraw"_n ), "curve::on_transfer: contract is under maintenance");
 
     // ignore transfers
     if ( to != get_self() || from == "eosio.ram"_n ) return;
@@ -92,7 +92,7 @@ void curve::convert( const name owner, const extended_asset ext_in, const vector
     check(out.quantity.amount != 0 && out.quantity.amount >= min_return, "curve::convert: invalid minimum return");
 
     // transfer amount to owner
-    transfer( get_self(), owner, out, "curve.sx: swap token" );
+    transfer( get_self(), owner, out, get_self().to_string() + ": swap token" );
 }
 
 extended_asset curve::apply_trade( const name owner, const extended_asset ext_quantity, const vector<symbol_code> pair_ids )
@@ -150,7 +150,7 @@ extended_asset curve::apply_trade( const name owner, const extended_asset ext_qu
             swaplog.send( pair_id, owner, "swap"_n, ext_in.quantity, ext_out.quantity, fee.quantity, price, row.reserve0.quantity, row.reserve1.quantity );
         });
         // send protocol fees
-        if ( protocol_fee.quantity.amount ) transfer( get_self(), config.fee_account, protocol_fee, "curve.sx: protocol fee");
+        if ( protocol_fee.quantity.amount ) transfer( get_self(), config.fee_account, protocol_fee, get_self().to_string() + ": protocol fee");
 
         // swap input as output to prepare for next conversion
         ext_in = ext_out;
@@ -201,12 +201,12 @@ void curve::deposit( const name owner, const symbol_code pair_id, const optional
     if (deposit0 < amount0) {
         const int64_t excess_amount = div_amount(static_cast<int64_t>(amount0 - deposit0), precision_norm, sym0.precision());
         const extended_asset excess = { excess_amount, pair.reserve0.get_extended_symbol() };
-        if(excess.quantity.amount) transfer( get_self(), owner, excess, "curve.sx: excess");
+        if (excess.quantity.amount) transfer( get_self(), owner, excess, get_self().to_string() + ": excess");
     }
     if (deposit1 < amount1) {
         const int64_t excess_amount = div_amount(static_cast<int64_t>(amount1 - deposit1), precision_norm, sym1.precision());
         const extended_asset excess = { excess_amount, pair.reserve1.get_extended_symbol() };
-        if(excess.quantity.amount) transfer( get_self(), owner, excess, "curve.sx: excess");
+        if (excess.quantity.amount) transfer( get_self(), owner, excess, get_self().to_string() + ": excess");
     }
 
     // normalize final deposits
@@ -230,8 +230,8 @@ void curve::deposit( const name owner, const symbol_code pair_id, const optional
     });
 
     // issue & transfer to owner
-    issue( issued, "curve.sx: deposit" );
-    transfer( get_self(), owner, issued, "curve.sx: deposit");
+    issue( issued, get_self().to_string() + ": deposit" );
+    transfer( get_self(), owner, issued, get_self().to_string() + ": deposit");
 
     // deposit slippage protection
     if ( min_amount ) check( issued.quantity.amount >= *min_amount, "curve::deposit: deposit amount must exceed `min_amount`");
@@ -248,8 +248,8 @@ void curve::cancel( const name owner, const symbol_code pair_id )
 
     curve::orders_table _orders( get_self(), pair_id.raw() );
     auto & orders = _orders.get( owner.value, "curve::cancel: no deposits for this user in this pool");
-    if ( orders.quantity0.quantity.amount ) transfer( get_self(), owner, orders.quantity0, "curve.sx: cancel");
-    if ( orders.quantity1.quantity.amount ) transfer( get_self(), owner, orders.quantity1, "curve.sx: cancel");
+    if ( orders.quantity0.quantity.amount ) transfer( get_self(), owner, orders.quantity0, get_self().to_string() + ": cancel");
+    if ( orders.quantity1.quantity.amount ) transfer( get_self(), owner, orders.quantity1, get_self().to_string() + ": cancel");
 
     _orders.erase( orders );
 }
@@ -316,9 +316,9 @@ void curve::withdraw_liquidity( const name owner, const extended_asset value )
     });
 
     // issue & transfer to owner
-    retire( value, "curve.sx: withdraw" );
-    if ( out0.quantity.amount ) transfer( get_self(), owner, out0, "curve.sx: withdraw");
-    if ( out1.quantity.amount ) transfer( get_self(), owner, out1, "curve.sx: withdraw");
+    retire( value, get_self().to_string() + ": withdraw" );
+    if ( out0.quantity.amount ) transfer( get_self(), owner, out0, get_self().to_string() + ": withdraw");
+    if ( out1.quantity.amount ) transfer( get_self(), owner, out1, get_self().to_string() + ": withdraw");
 }
 
 void curve::add_liquidity( const name owner, const symbol_code pair_id, const extended_asset value )
@@ -521,7 +521,7 @@ double curve::calculate_price( const asset value0, const asset value1 )
 // Withdrawal: `` (empty)
 curve::memo_schema curve::parse_memo( const string memo )
 {
-    if(memo == "") return {};
+    if (memo == "") return {};
 
     // split memo into parts
     const vector<string> parts = sx::utils::split(memo, ",");

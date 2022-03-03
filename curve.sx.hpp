@@ -22,8 +22,8 @@ static constexpr uint32_t MAX_PROTOCOL_FEE = 100;
 static constexpr uint32_t MAX_TRADE_FEE = 50;
 
 // Error messages
-static string ERROR_INVALID_MEMO = "curve.sx: invalid memo (ex: \"swap,<min_return>,<pair_ids>\" or \"deposit,<pair_id>\"";
-static string ERROR_CONFIG_NOT_EXISTS = "curve.sx: contract is under maintenance";
+static string ERROR_INVALID_MEMO = "curve: invalid memo (ex: \"swap,<min_return>,<pair_ids>\" or \"deposit,<pair_id>\"";
+static string ERROR_CONFIG_NOT_EXISTS = "curve: contract is under maintenance";
 
 namespace sx {
 
@@ -286,10 +286,10 @@ public:
      * //=> 100
      * ```
      */
-    static uint64_t get_amplifier( const symbol_code pair_id )
+    static uint64_t get_amplifier( const symbol_code pair_id, const name code = sx::curve::code )
     {
-        sx::curve::ramp_table _ramp( sx::curve::code, sx::curve::code.value );
-        sx::curve::pairs_table _pairs( sx::curve::code, sx::curve::code.value );
+        sx::curve::ramp_table _ramp( code, code.value );
+        sx::curve::pairs_table _pairs( code, code.value );
 
         auto pairs = _pairs.get( pair_id.raw(), "curve.sx::get_amplifier: invalid `pair_id`" );
         auto ramp = _ramp.find( pair_id.raw() );
@@ -338,7 +338,7 @@ public:
      * //=> "10.1000 B"
      * ```
      */
-    static asset get_amount_out( const asset in, const symbol_code pair_id )
+    static asset get_amount_out( const asset in, const symbol_code pair_id, const name code = sx::curve::code )
     {
         sx::curve::config_table _config( sx::curve::code, sx::curve::code.value );
         sx::curve::pairs_table _pairs( sx::curve::code, sx::curve::code.value );
@@ -346,11 +346,11 @@ public:
 
         // get configs
         auto config = _config.get();
-        auto pairs = _pairs.get( pair_id.raw(), "curve.sx::get_amount_out: invalid pair id" );
+        auto pairs = _pairs.get( pair_id.raw(), "curve::get_amount_out: invalid pair id" );
 
         // inverse reserves based on input quantity
         if (pairs.reserve0.quantity.symbol != in.symbol) std::swap(pairs.reserve0, pairs.reserve1);
-        eosio::check( pairs.reserve0.quantity.symbol == in.symbol, "curve.sx::get_amount_out: no such reserve in pairs");
+        eosio::check( pairs.reserve0.quantity.symbol == in.symbol, "curve::get_amount_out: no such reserve in pairs");
 
         // normalize inputs to max precision
         const uint8_t precision_in = pairs.reserve0.quantity.symbol.precision();
@@ -358,11 +358,11 @@ public:
         const int64_t amount_in = mul_amount( in.amount, MAX_PRECISION, precision_in );
         const int64_t reserve_in = mul_amount( pairs.reserve0.quantity.amount, MAX_PRECISION, precision_in );
         const int64_t reserve_out = mul_amount( pairs.reserve1.quantity.amount, MAX_PRECISION, precision_out );
-        const uint64_t amplifier = get_amplifier( pair_id );
+        const uint64_t amplifier = get_amplifier( pair_id, code );
         const int64_t protocol_fee = amount_in * config.protocol_fee / 10000;
 
         // enforce minimum fee
-        if ( config.trade_fee ) check( in.amount * config.trade_fee / 10000, "curve.sx::get_amount_out: trade quantity too small");
+        if ( config.trade_fee ) check( in.amount * config.trade_fee / 10000, "curve::get_amount_out: trade quantity too small");
 
         // calculate out
         const int64_t out = div_amount( static_cast<int64_t>(Curve::get_amount_out( amount_in - protocol_fee, reserve_in, reserve_out, amplifier, config.trade_fee )), MAX_PRECISION, precision_out );
@@ -373,7 +373,7 @@ public:
     static int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
     {
         const int64_t res = static_cast<int64_t>( precision0 >= precision1 ? safemath::mul(amount, pow(10, precision0 - precision1 )) : amount / static_cast<int64_t>(pow( 10, precision1 - precision0 )));
-        check(res >= 0, "curve.sx::mul_amount: mul/div overflow");
+        check(res >= 0, "curve::mul_amount: mul/div overflow");
         return res;
     }
 
