@@ -12,12 +12,12 @@
 
 **Local**
 ```bash
-$ git checkout v1.0.2
+$ git checkout v1.0.3
 $ eosio-cpp --version
 eosio-cpp version 1.7.0
 $ eosio-cpp curve.sx.cpp -I include
 $ shasum -a 256 curve.sx.wasm
-9126cde6ddd504df91922aff921f42e5a5618b6d38df5184c865dc4112ac4880  curve.sx.wasm
+c5719e5c0cb408e99004614baeee885fe510bedd3f905acf496b20aa725fe3ed  curve.sx.wasm
 ```
 
 **EOS Mainnet**
