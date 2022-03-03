@@ -25,13 +25,10 @@ void curve::on_transfer( const name from, const name to, const asset quantity, c
     // config
     check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
     const name status = _config.get().status;
-    check( (status == "ok"_n || status == "testing"_n || status == "withdraw"_n || status == "swap"_n ), "curve.sx::on_transfer: contract is under maintenance");
+    check( status == "ok"_n, get_self() + "::on_transfer: contract is under maintenance");
 
     // ignore transfers
-    if ( to != get_self() || memo == get_self().to_string() || from == "eosio.ram"_n || from == "mine4.defi"_n) return;
-
-    // testing only
-    if ( status == "testing"_n ) check( from.suffix() == "sx"_n, "curve.sx::on_transfer: account must be *.sx during testing period");
+    if ( to != get_self() || from == "eosio.ram"_n ) return;
 
     // user input params
     const auto parsed_memo = parse_memo( memo );
@@ -39,11 +36,10 @@ void curve::on_transfer( const name from, const name to, const asset quantity, c
     const bool is_liquidity = _pairs.find( quantity.symbol.code().raw() ) != _pairs.end();
 
     // only allow liquidity withdraws to be available
-    if ( status == "withdraw"_n ) check( is_liquidity, "curve.sx::on_transfer: only accepts liquidity tokens during `withdraw` status");
+    if ( status == "withdraw"_n ) check( is_liquidity, get_self() + "::on_transfer: only accepts liquidity tokens during `withdraw` status");
 
     // add liquidity (memo required => "deposit,<pair_id>")
     if ( parsed_memo.action == "deposit"_n ) {
-        if ( status == "swap"_n ) check( from.suffix() == "sx"_n, "curve.sx::on_transfer: only *.sx accounts can deposit during swap mode");
         add_liquidity( from, parsed_memo.pair_ids[0], ext_in );
 
     // swap convert (memo required => "swap,<min_return>,<pair_ids>")
@@ -77,8 +73,8 @@ void curve::init( const name token_contract )
     auto config = _config.exists() ? _config.get() : curve::config_row{};
 
     // token contract can not be modified once initialized
-    check( is_account( config.token_contract ), "curve.sx::init: `token_contract` does not exist");
-    if ( config.token_contract.value ) check( config.token_contract == token_contract, "curve.sx::init: `token_contract` cannot be modified once initialized");
+    check( is_account( config.token_contract ), get_self() + "::init: `token_contract` does not exist");
+    if ( config.token_contract.value ) check( config.token_contract == token_contract, get_self() + "::init: `token_contract` cannot be modified once initialized");
 
     // set config
     config.token_contract = token_contract;
@@ -100,7 +96,7 @@ void curve::convert( const name owner, const extended_asset ext_in, const vector
     const extended_asset out = apply_trade( owner, ext_in, pair_ids );
 
     // enforce minimum return (slippage protection)
-    check(out.quantity.amount != 0 && out.quantity.amount >= min_return, "curve.sx::convert: invalid minimum return");
+    check(out.quantity.amount != 0 && out.quantity.amount >= min_return, get_self() + "::convert: invalid minimum return");
 
     // transfer amount to owner
     transfer( get_self(), owner, out, "curve.sx: swap token" );
@@ -119,14 +115,14 @@ extended_asset curve::apply_trade( const name owner, const extended_asset ext_qu
 
     // iterate over each liquidity pool per each `pair_id` provided in swap memo
     for ( const symbol_code pair_id : pair_ids ) {
-        const auto& pairs = _pairs.get( pair_id.raw(), "curve.sx::apply_trade: `pair_id` does not exist");
+        const auto& pairs = _pairs.get( pair_id.raw(), get_self() + "::apply_trade: `pair_id` does not exist");
         const bool is_in = pairs.reserve0.quantity.symbol == ext_in.quantity.symbol;
         const extended_asset reserve_in = is_in ? pairs.reserve0 : pairs.reserve1;
         const extended_asset reserve_out = is_in ? pairs.reserve1 : pairs.reserve0;
 
         // validate input quantity & reserves
-        check(reserve_in.get_extended_symbol() == ext_in.get_extended_symbol(), "curve.sx::apply_trade: invalid extended symbol");
-        check(reserve_in.quantity.amount != 0 && reserve_out.quantity.amount != 0, "curve.sx::apply_trade: empty pool reserves");
+        check(reserve_in.get_extended_symbol() == ext_in.get_extended_symbol(), get_self() + "::apply_trade: invalid extended symbol");
+        check(reserve_in.quantity.amount != 0 && reserve_out.quantity.amount != 0, get_self() + "::apply_trade: empty pool reserves");
 
         // calculate out
         ext_out = { get_amount_out( ext_in.quantity, pair_id ), reserve_out.contract };
@@ -184,9 +180,9 @@ void curve::deposit( const name owner, const symbol_code pair_id, const optional
     auto config = _config.get();
 
     // get current order & pairs
-    auto & pair = _pairs.get( pair_id.raw(), "curve.sx::deposit: `pair_id` does not exist");
-    auto & orders = _orders.get( owner.value, "curve.sx::deposit: no deposits available for this user");
-    check( orders.quantity0.quantity.amount && orders.quantity1.quantity.amount, "curve.sx::deposit: one of the deposit is empty");
+    auto & pair = _pairs.get( pair_id.raw(), get_self() + "::deposit: `pair_id` does not exist");
+    auto & orders = _orders.get( owner.value, get_self() + "::deposit: no deposits available for this user");
+    check( orders.quantity0.quantity.amount && orders.quantity1.quantity.amount, get_self() + "::deposit: one of the deposit is empty");
 
     // symbol helpers
     const symbol sym0 = pair.reserve0.quantity.symbol;
@@ -245,7 +241,7 @@ void curve::deposit( const name owner, const symbol_code pair_id, const optional
     transfer( get_self(), owner, issued, "curve.sx: deposit");
 
     // deposit slippage protection
-    if ( min_amount ) check( issued.quantity.amount >= *min_amount, "curve.sx::deposit: deposit amount must exceed `min_amount`");
+    if ( min_amount ) check( issued.quantity.amount >= *min_amount, get_self() + "::deposit: deposit amount must exceed `min_amount`");
 
     // delete any remaining liquidity deposit order
     _orders.erase( orders );
@@ -258,7 +254,7 @@ void curve::cancel( const name owner, const symbol_code pair_id )
     if ( !has_auth( get_self() )) require_auth( owner );
 
     curve::orders_table _orders( get_self(), pair_id.raw() );
-    auto & orders = _orders.get( owner.value, "curve.sx::cancel: no deposits for this user in this pool");
+    auto & orders = _orders.get( owner.value, get_self() + "::cancel: no deposits for this user in this pool");
     if ( orders.quantity0.quantity.amount ) transfer( get_self(), owner, orders.quantity0, "curve.sx: cancel");
     if ( orders.quantity1.quantity.amount ) transfer( get_self(), owner, orders.quantity1, "curve.sx: cancel");
 
@@ -271,8 +267,8 @@ void curve::removepair( const symbol_code pair_id )
     require_auth( get_self() );
 
     curve::pairs_table _pairs( get_self(), get_self().value );
-    auto & pair = _pairs.get( pair_id.raw(), "curve.sx::removepair: [pair_id] does not exist");
-    check( pair.liquidity.quantity.amount == 0, "curve.sx::removepair: liquidity amount must be empty");
+    auto & pair = _pairs.get( pair_id.raw(), get_self() + "::removepair: [pair_id] does not exist");
+    check( pair.liquidity.quantity.amount == 0, get_self() + "::removepair: liquidity amount must be empty");
     _pairs.erase( pair );
 }
 
@@ -282,10 +278,10 @@ void curve::withdraw_liquidity( const name owner, const extended_asset value )
 
     // get current pairs
     const symbol_code pair_id = value.quantity.symbol.code();
-    auto & pair = _pairs.get( pair_id.raw(), "curve.sx::withdraw_liquidity: `pair_id` does not exist");
+    auto & pair = _pairs.get( pair_id.raw(), get_self() + "::withdraw_liquidity: `pair_id` does not exist");
 
     // prevent invalid liquidity token contracts
-    check(pair.liquidity.get_extended_symbol() == value.get_extended_symbol(), "curve.sx::withdraw_liquidity: invalid extended symbol");
+    check(pair.liquidity.get_extended_symbol() == value.get_extended_symbol(), get_self() + "::withdraw_liquidity: invalid extended symbol");
 
     // extended symbols
     const extended_symbol ext_sym0 = pair.reserve0.get_extended_symbol();
@@ -313,7 +309,7 @@ void curve::withdraw_liquidity( const name owner, const extended_asset value )
     }
     const extended_asset out0 = { div_amount(amount0, precision_norm, sym0.precision()), ext_sym0 };
     const extended_asset out1 = { div_amount(amount1, precision_norm, sym1.precision()), ext_sym1 };
-    check( out0.quantity.amount || out1.quantity.amount, "curve.sx::withdraw_liquidity: withdraw amount too small");
+    check( out0.quantity.amount || out1.quantity.amount, get_self() + "::withdraw_liquidity: withdraw amount too small");
 
     // add liquidity deposits & newly issued liquidity
     _pairs.modify(pair, get_self(), [&]( auto & row ) {
@@ -338,7 +334,7 @@ void curve::add_liquidity( const name owner, const symbol_code pair_id, const ex
     curve::orders_table _orders( get_self(), pair_id.raw() );
 
     // get current order & pairs
-    auto pair = _pairs.get( pair_id.raw(), "curve.sx::add_liquidity: `pair_id` does not exist");
+    auto pair = _pairs.get( pair_id.raw(), get_self() + "::add_liquidity: `pair_id` does not exist");
     auto itr = _orders.find( owner.value );
 
     // extended symbols
@@ -355,7 +351,7 @@ void curve::add_liquidity( const name owner, const symbol_code pair_id, const ex
         // add & validate deposit
         if ( ext_sym_in == ext_sym0 ) row.quantity0 += value;
         else if ( ext_sym_in == ext_sym1 ) row.quantity1 += value;
-        else check( false, "curve.sx::add_liquidity: invalid extended symbol");
+        else check( false, get_self() + "::add_liquidity: invalid extended symbol");
     };
 
     // create/modify order
@@ -371,12 +367,12 @@ void curve::ramp( const symbol_code pair_id, const uint64_t target_amplifier, co
 
     curve::ramp_table _ramp_table( get_self(), get_self().value );
     curve::pairs_table _pairs( get_self(), get_self().value );
-    auto pair = _pairs.get(pair_id.raw(), "curve.sx::ramp: `pair_id` does not exist in `pairs`");
+    auto pair = _pairs.get(pair_id.raw(), get_self() + "::ramp: `pair_id` does not exist in `pairs`");
 
     // validation
-    check( target_amplifier > 0 && target_amplifier <= MAX_AMPLIFIER, "curve.sx::ramp: target amplifier should be within within valid range");
-    check( minutes > 0, "curve.sx::ramp: minutes should be above 0");
-    check( minutes * 60 >= MIN_RAMP_TIME, "curve.sx::ramp: minimum ramp timeframe must exceed " + to_string(MIN_RAMP_TIME) + " seconds");
+    check( target_amplifier > 0 && target_amplifier <= MAX_AMPLIFIER, get_self() + "::ramp: target amplifier should be within within valid range");
+    check( minutes > 0, get_self() + "::ramp: minutes should be above 0");
+    check( minutes * 60 >= MIN_RAMP_TIME, get_self() + "::ramp: minimum ramp timeframe must exceed " + to_string(MIN_RAMP_TIME) + " seconds");
 
     auto insert = [&]( auto & row ) {
         row.pair_id = pair_id;
@@ -397,7 +393,7 @@ void curve::stopramp( const symbol_code pair_id )
     require_auth( get_self() );
 
     curve::ramp_table _ramp( get_self(), get_self().value );
-    auto & ramp = _ramp.get(pair_id.raw(), "curve.sx::stopramp: `pair_id` does not exist in `ramp` table");
+    auto & ramp = _ramp.get(pair_id.raw(), get_self() + "::stopramp: `pair_id` does not exist in `ramp` table");
     _ramp.erase( ramp );
 }
 
@@ -412,12 +408,12 @@ void curve::setfee( const uint8_t trade_fee, const optional<uint8_t> protocol_fe
     auto config = _config.get();
 
     // required params
-    check( trade_fee <= MAX_TRADE_FEE, "curve.sx::setfee: `trade_fee` has exceeded maximum limit");
-    check( *protocol_fee <= MAX_PROTOCOL_FEE, "curve.sx::setfee: `protocol_fee` has exceeded maximum limit");
+    check( trade_fee <= MAX_TRADE_FEE, get_self() + "::setfee: `trade_fee` has exceeded maximum limit");
+    check( *protocol_fee <= MAX_PROTOCOL_FEE, get_self() + "::setfee: `protocol_fee` has exceeded maximum limit");
 
     // optional params
-    if ( fee_account->value ) check( is_account( *fee_account ), "curve.sx::setfee: `fee_account` does not exist");
-    if ( *protocol_fee ) check( fee_account->value, "curve.sx::setfee: must provide `fee_account` if `protocol_fee` is defined");
+    if ( fee_account->value ) check( is_account( *fee_account ), get_self() + "::setfee: `fee_account` does not exist");
+    if ( *protocol_fee ) check( fee_account->value, get_self() + "::setfee: must provide `fee_account` if `protocol_fee` is defined");
 
     // set config
     config.trade_fee = trade_fee;
@@ -433,7 +429,7 @@ void curve::setnotifiers( const vector<name> notifiers )
     require_auth( get_self() );
 
     for ( const name notifier : notifiers ) {
-        check( is_account( notifier ), "curve.sx::setnotifiers: `notifier` does not exist");
+        check( is_account( notifier ), get_self() + "::setnotifiers: `notifier` does not exist");
     }
     curve::config_table _config( get_self(), get_self().value );
     check( _config.exists(), ERROR_CONFIG_NOT_EXISTS );
@@ -458,7 +454,7 @@ void curve::setstatus( const name status )
 void curve::createpair( const name creator, const symbol_code pair_id, const extended_symbol reserve0, const extended_symbol reserve1, const uint64_t amplifier )
 {
     // `creator` must be contract itself during beta period
-    if ( !has_auth( get_self() ) ) check( false, "curve.sx::createpair: `creator` is disabled from creating pair during beta period");
+    if ( !has_auth( get_self() ) ) check( false, get_self() + "::createpair: `creator` is disabled from creating pair during beta period");
     require_auth( creator );
 
     // tables
@@ -474,12 +470,12 @@ void curve::createpair( const name creator, const symbol_code pair_id, const ext
     const symbol sym1 = reserve1.get_symbol();
 
     // check reserves
-    check( is_account( contract0 ), "curve.sx::createpair: reserve0 contract does not exists");
-    check( is_account( contract1 ), "curve.sx::createpair: reserve1 contract does not exists");
-    check( token::get_supply( contract0, sym0.code() ).symbol == sym0, "curve.sx::createpair: reserve0 extended symbol mismatch supply" );
-    check( token::get_supply( contract1, sym1.code() ).symbol == sym1, "curve.sx::createpair: reserve1 extended symbol mismatch supply" );
-    check( _pairs.find( pair_id.raw() ) == _pairs.end(), "curve.sx::createpair: `pair_id` already exists" );
-    check( amplifier > 0 && amplifier <= MAX_AMPLIFIER, "curve.sx::createpair: invalid amplifier" );
+    check( is_account( contract0 ), get_self() + "::createpair: reserve0 contract does not exists");
+    check( is_account( contract1 ), get_self() + "::createpair: reserve1 contract does not exists");
+    check( token::get_supply( contract0, sym0.code() ).symbol == sym0, get_self() + "::createpair: reserve0 extended symbol mismatch supply" );
+    check( token::get_supply( contract1, sym1.code() ).symbol == sym1, get_self() + "::createpair: reserve1 extended symbol mismatch supply" );
+    check( _pairs.find( pair_id.raw() ) == _pairs.end(), get_self() + "::createpair: `pair_id` already exists" );
+    check( amplifier > 0 && amplifier <= MAX_AMPLIFIER, get_self() + "::createpair: invalid amplifier" );
 
     // create liquidity token
     const extended_symbol liquidity = {{ pair_id, max(sym0.precision(), sym1.precision())}, token_contract };
@@ -491,7 +487,7 @@ void curve::createpair( const name creator, const symbol_code pair_id, const ext
     // create token if supply does not exist
     if ( stats_itr == _stats.end() ) create( liquidity );
     // supply must be empty
-    else check( !stats_itr->supply.amount, "curve.sx::createpair: creating new pair requires existing supply to be zero" );
+    else check( !stats_itr->supply.amount, get_self() + "::createpair: creating new pair requires existing supply to be zero" );
 
     // create pair
     _pairs.emplace( creator, [&]( auto & row ) {
@@ -572,9 +568,9 @@ vector<symbol_code> curve::parse_memo_pair_ids( const string memo )
     for ( const string str : sx::utils::split(memo, "-") ) {
         const symbol_code symcode = sx::utils::parse_symbol_code( str );
         check( symcode.raw(), ERROR_INVALID_MEMO );
-        check( _pairs.find( symcode.raw() ) != _pairs.end(), "curve.sx::parse_memo_pair_ids: `pair_id` does not exist");
+        check( _pairs.find( symcode.raw() ) != _pairs.end(), get_self() + "::parse_memo_pair_ids: `pair_id` does not exist");
         pair_ids.push_back( symcode );
-        check( !duplicates.count( symcode ), "curve.sx::parse_memo_pair_ids: invalid duplicate `pair_ids`");
+        check( !duplicates.count( symcode ), get_self() + "::parse_memo_pair_ids: invalid duplicate `pair_ids`");
         duplicates.insert( symcode );
     }
     return pair_ids;
