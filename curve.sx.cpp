@@ -141,7 +141,7 @@ extended_asset curve::apply_trade( const name owner, const extended_asset ext_qu
             row.amplifier = get_amplifier( pair_id, get_self() );
             row.virtual_price = calculate_virtual_price( row.reserve0.quantity, row.reserve1.quantity, row.liquidity.quantity );
             if ( is_in ) row.price0_last = 1 / price;
-            if ( is_in ) row.price1_last = price;
+            else row.price1_last = price;
             row.trades += 1;
             row.last_updated = current_time_point();
 
