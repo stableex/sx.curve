@@ -127,21 +127,22 @@ extended_asset curve::apply_trade( const name owner, const extended_asset ext_qu
 
         // modify reserves
         _pairs.modify( pairs, get_self(), [&]( auto & row ) {
+            // calculate last price
+            const double price = calculate_price( ext_out.quantity, ext_in.quantity );
+
             if ( is_in ) {
                 row.reserve0.quantity += ext_in.quantity - protocol_fee.quantity;
                 row.reserve1.quantity -= ext_out.quantity;
                 row.volume0 += ext_in.quantity;
+                row.price0_last = price;
             } else {
                 row.reserve1.quantity += ext_in.quantity - protocol_fee.quantity;
                 row.reserve0.quantity -= ext_out.quantity;
                 row.volume1 += ext_in.quantity;
+                row.price1_last = price;
             }
-            // calculate last price
-            const double price = calculate_price( ext_in.quantity, ext_out.quantity );
             row.amplifier = get_amplifier( pair_id, get_self() );
             row.virtual_price = calculate_virtual_price( row.reserve0.quantity, row.reserve1.quantity, row.liquidity.quantity );
-            row.price0_last = is_in ? 1 / price : price;
-            row.price1_last = is_in ? price : 1 / price;
             row.trades += 1;
             row.last_updated = current_time_point();
 
