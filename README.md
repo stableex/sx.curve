@@ -6,7 +6,7 @@
 
 - <a href="https://github.com/slowmist/Knowledge-Base/blob/b717756a17702e604ab2dc8b072a2f127304b17d/open-report/Smart%20Contract%20Security%20Audit%20Report%20-%20sx.curve.pdf"><img height=30px src="https://user-images.githubusercontent.com/550895/132642025-b4dacacd-e1c1-4a02-9bb1-09ae359eb1f9.png" /> SlowMist Audit</a> (2021-07)
 - <a href="https://www.knownsec.com"><img height=30px src="https://user-images.githubusercontent.com/550895/120322175-1fe4fd00-c2b2-11eb-96bb-402dec711e38.png" /> KnownSec</a> (2021-05)
-- <a href="https://s3.eu-central-1.wasabisys.com/audit-certificates/Smart%20Contract%20Audit%20Certificate%20-%20Sx.curve-final.pdf"><img height=30px src="https://user-images.githubusercontent.com/550895/132641907-6425e632-1b1b-4015-9b84-b7f26a25ec58.png" /> Sentnl Audit</a> (2020-03)
+- <a href="https://s3.eu-central-1.wasabisys.com/audit-certificates/Smart%20Contract%20Audit%20Certificate%20-%20Sx.curve-final.pdf"><img height=30px src="https://user-images.githubusercontent.com/550895/132641907-6425e632-1b1b-4015-9b84-b7f26a25ec58.png" /> Sentnl Audit</a> (2021-03)
 
 ## SHA256 Checksum
 
