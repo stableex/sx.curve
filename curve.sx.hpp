@@ -370,6 +370,18 @@ public:
         return { out, pairs.reserve1.quantity.symbol };
     }
 
+    static pair<asset, asset> get_reserves( const symbol_code pair_id, const symbol sort, const name code = sx::curve::code )
+    {
+        sx::curve::pairs_table _pairs( code, code.value );
+        auto pairs = _pairs.get( pair_id.raw(), "curve::get_amount_out: invalid pair id" );
+
+        // inverse reserves based on input symbol
+        if (pairs.reserve0.quantity.symbol != sort) std::swap(pairs.reserve0, pairs.reserve1);
+        eosio::check( pairs.reserve0.quantity.symbol == sort, "curve::get_amount_out: no such reserve in pairs");
+
+        return { pairs.reserve0.quantity, pairs.reserve1.quantity };
+    }
+
     static int64_t mul_amount( const int64_t amount, const uint8_t precision0, const uint8_t precision1 )
     {
         const int64_t res = static_cast<int64_t>( precision0 >= precision1 ? safemath::mul(amount, pow(10, precision0 - precision1 )) : amount / static_cast<int64_t>(pow( 10, precision1 - precision0 )));
